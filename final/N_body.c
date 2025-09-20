@@ -3,11 +3,13 @@
 #include <SDL2/SDL.h>
 #include <pthread.h>
 #include <time.h>
+#include <pthread.h>
+#include <stdlib.h>
 
 #define WIDTH   1200
 #define HEIGHT  800
 
-#define NUM_BODIES 3
+#define NUM_BODIES 10
 #define TRAIL_BUF  5000
 #define MIN_DIST   1.5
 
@@ -17,6 +19,7 @@
 #define COL_BLACK      0x00000000
 uint32_t COLORS[] = {0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff, 0x0000ffff};
 
+#define NUM_THREADS 4
 typedef struct {
     double x, y;
     double vx, vy;
@@ -76,6 +79,96 @@ static void trail_draw(SDL_Surface *surf, const Trail *t, Uint32 col)
     }
 }
 
+typedef struct
+{
+    const Planet *b;
+    int t_id;
+    int t_N;
+    double *t_ax;
+    double *t_ay;
+} AccelerationArgsV1;
+
+static void *accelerations_thread_v1(void *arg)
+{
+    AccelerationArgsV1 *A = (AccelerationArgsV1 *)arg;
+    const Planet *b = A->b;
+    int t_id = A->t_id;
+    int t_N = A->t_N;
+
+    double *ax = A->t_ax;
+    double *ay = A->t_ay;
+
+    int chunk = (NUM_BODIES + t_N - 1) / t_N;
+    int i_start = t_id * chunk;
+    int i_end = (i_start + chunk < NUM_BODIES) ? (i_start + chunk) : NUM_BODIES;
+    int count = 0;
+
+    for (int i = i_start; i < i_end; ++i)
+    {
+        for (int j = i + 1; j < NUM_BODIES; ++j)
+        {
+            double dx = b[j].x - b[i].x;
+            double dy = b[j].y - b[i].y;
+            double dist2 = dx * dx + dy * dy + EPSILON;
+            double dist = sqrt(dist2);
+
+            double F = (G * b[i].mass * b[j].mass) / dist2;
+            double fx = F * dx / dist;
+            double fy = F * dy / dist;
+
+            ax[i] += fx / b[i].mass;
+            ay[i] += fy / b[i].mass;
+            ax[j] -= fx / b[j].mass;
+            ay[j] -= fy / b[j].mass;
+            count++;
+        }
+    }
+    printf("Thread %d: i_start=%d, i_end=%d, calc_count=%d\n", t_id, i_start, i_end, count);
+    return NULL;
+}
+
+static void accelerations_parallel(const Planet b[], double ax[], double ay[])
+{
+    int t_N = NUM_THREADS > NUM_BODIES ? NUM_BODIES : NUM_THREADS;
+
+    pthread_t *threads = malloc(sizeof(pthread_t) * t_N);
+    AccelerationArgsV1 *args = malloc(sizeof(AccelerationArgsV1) * t_N);
+
+    double **t_ax = malloc(sizeof(double *) * t_N);
+    double **t_ay = malloc(sizeof(double *) * t_N);
+    for (int t = 0; t < t_N; ++t)
+    {
+        t_ax[t] = calloc(NUM_BODIES, sizeof(double));
+        t_ay[t] = calloc(NUM_BODIES, sizeof(double));
+    }
+
+    for (int i = 0; i < NUM_BODIES; ++i) ax[i] = ay[i] = 0.0;
+
+    for (int t = 0; t < t_N; ++t)
+    {
+        args[t].b = b;
+        args[t].t_id = t;
+        args[t].t_N = t_N;
+        args[t].t_ax = t_ax[t];
+        args[t].t_ay = t_ay[t];
+        pthread_create(&threads[t], NULL, accelerations_thread_v1, &args[t]);
+    }
+
+    for (int t = 0; t < t_N; ++t)
+    {
+        pthread_join(threads[t], NULL);
+    }
+
+    for (int t = 0; t < t_N; ++t)
+    {
+        for (int i = 0; i < NUM_BODIES; ++i)
+        {
+            ax[i] += t_ax[t][i];
+            ay[i] += t_ay[t][i];
+        }
+    }
+}
+
 static void accelerations(const Planet b[], double ax[], double ay[])
 {
     for (int i = 0; i < NUM_BODIES; ++i) ax[i] = ay[i] = 0.0;
@@ -105,7 +198,7 @@ static void step_leapfrog(Planet b[], double dt)
     static int first = 1;
 
     if (first) {
-        accelerations(b, ax, ay);
+        accelerations_parallel(b, ax, ay);
         first = 0;
     }
 
@@ -116,7 +209,7 @@ static void step_leapfrog(Planet b[], double dt)
         b[i].y  +=      b[i].vy * dt;
     }
 
-    accelerations(b, ax, ay);
+    accelerations_parallel(b, ax, ay);
 
     for (int i = 0; i < NUM_BODIES; ++i) {
         b[i].vx += 0.5 * ax[i] * dt;
