@@ -2,6 +2,7 @@
 #include <math.h>
 #include <SDL2/SDL.h>
 #include <pthread.h>
+#include <time.h>
 
 #define WIDTH   1200
 #define HEIGHT  800
@@ -14,9 +15,7 @@
 #define EPSILON  1e-6
 
 #define COL_BLACK      0x00000000
-#define COL_YELLOW     0x00ffff00
-#define COL_LIGHTBLUE  0x00007fff
-#define COL_WHITE      0x00ffffff
+uint32_t COLORS[] = {0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff, 0x0000ffff};
 
 typedef struct {
     double x, y;
@@ -144,8 +143,16 @@ static void recenter(Planet b[])
     }
 }
 
+double random_double(double min, double max)
+{
+    double range = (max - min);
+    double div = RAND_MAX / range;
+    return min + (rand() / div);
+}
+
 int main(void)
 {
+    srand(time(NULL));
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
@@ -172,12 +179,16 @@ int main(void)
     double cx = WIDTH / 2.0;
     double cy = HEIGHT / 2.0;
 
-    bodies[0] = (Planet){ cx + (-0.97000436)*S, cy + ( 0.24308753)*S,
-                          0.466203685*VS,  0.43236573*VS,   m, 15 };
-    bodies[1] = (Planet){ cx,                 cy,
-                         -0.93240737*VS, -0.86473146*VS,   m, 15 };
-    bodies[2] = (Planet){ cx + ( 0.97000436)*S, cy + (-0.24308753)*S,
-                          0.466203685*VS,  0.43236573*VS,   m, 15 };
+    for (int i = 0; i < NUM_BODIES; ++i){
+        random();
+
+        bodies[i] = (Planet){
+            cx + random_double(-1.0, 1.0) * S,
+            cy + random_double(-1.0, 1.0) * S,
+            random_double(-1.0, 1.0) * VS,
+            random_double(-1.0, 1.0) * VS,
+            m, 15};
+    }
 
     Trail trails[NUM_BODIES] = {0};
 
@@ -208,14 +219,11 @@ int main(void)
             trail_push(&trails[i], (int)bodies[i].x, (int)bodies[i].y);
 
         SDL_FillRect(surf, NULL, COL_BLACK);
-
-        trail_draw(surf, &trails[0], COL_YELLOW);
-        trail_draw(surf, &trails[1], COL_LIGHTBLUE);
-        trail_draw(surf, &trails[2], COL_WHITE);
-
-        fill_circle(surf, (int)bodies[0].x, (int)bodies[0].y, (int)bodies[0].r, COL_YELLOW);
-        fill_circle(surf, (int)bodies[1].x, (int)bodies[1].y, (int)bodies[1].r, COL_LIGHTBLUE);
-        fill_circle(surf, (int)bodies[2].x, (int)bodies[2].y, (int)bodies[2].r, COL_WHITE);
+        
+        for (int i = 0; i < NUM_BODIES; ++i) {
+            trail_draw(surf, &trails[i], COLORS[i % 6]);
+            fill_circle(surf, (int)bodies[i].x, (int)bodies[i].y, (int)bodies[i].r, COLORS[i % 6]);
+        }
 
         SDL_UpdateWindowSurface(win);
         SDL_Delay(16);
