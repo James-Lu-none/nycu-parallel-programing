@@ -1,10 +1,42 @@
-# Three‑Body Problem Simulation
+# parallel programming implementation for Three‑Body Problem Simulation
+
+## accelerations_thread_v1
+
+In accelerations_thread_v1, the original iteration on NUM_BODIES is divided to NUM_THREADS to perform parallel acceleration calculation,
+but in the calculation, every acceleration component is calculated in pair by exploiting the Newton’s 3rd law of motion
+(for body number i, acceleration calculations are only applied from body number i+1 to the last body),
+so the load in each thread becomes imbalanced, we can derive the calculation count as follow:
+
+let P = NUM_BODIES/NUM_THREADS
+calc_count for thread i
+= sum(NUM_BODIES-k-1, k, P*i, P*(i+1))
+= (P*(NUM_THREADS-i-1)+P*(NUM_THREADS-i)-1)*P/2
+
+And here is the runtime result:
+
+```log
+Thread 3: i_start=75, i_end=100, calc_count=300
+Thread 2: i_start=50, i_end=75, calc_count=925
+Thread 0: i_start=0, i_end=25, calc_count=2175
+Thread 1: i_start=25, i_end=50, calc_count=1550
+Thread 3: i_start=75, i_end=100, calc_count=300
+Thread 2: i_start=50, i_end=75, calc_count=925
+Thread 1: i_start=25, i_end=50, calc_count=1550
+Thread 0: i_start=0, i_end=25, calc_count=2175
+Thread 3: i_start=75, i_end=100, calc_count=300
+Thread 2: i_start=50, i_end=75, calc_count=925
+Thread 0: i_start=0, i_end=25, calc_count=2175
+Thread 1: i_start=25, i_end=50, calc_count=1550
+```
+
+
+## Three‑Body Problem Simulation
 
 A real‑time visualisation of the famous planar **figure‑8 three‑body orbit**. The program integrates Newtonian gravity with a **leapfrog (velocity‑Verlet) scheme**, recenters the camera on the instantaneous centre of mass, and leaves colourful trails behind each body.
 
 ---
 
-# Demo
+## Demo
 
 ![Demo](../assets/3_body_simulation.gif)
 
