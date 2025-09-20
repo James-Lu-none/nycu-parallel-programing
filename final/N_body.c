@@ -167,6 +167,16 @@ static void accelerations_parallel(const Planet b[], double ax[], double ay[])
             ay[i] += t_ay[t][i];
         }
     }
+    
+    for (int t = 0; t < t_N; ++t)
+    {
+        free(t_ax[t]);
+        free(t_ay[t]);
+    }
+    free(t_ax);
+    free(t_ay);
+    free(threads);
+    free(args);
 }
 
 static void accelerations(const Planet b[], double ax[], double ay[])
