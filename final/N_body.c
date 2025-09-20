@@ -180,8 +180,6 @@ int main(void)
     double cy = HEIGHT / 2.0;
 
     for (int i = 0; i < NUM_BODIES; ++i){
-        random();
-
         bodies[i] = (Planet){
             cx + random_double(-1.0, 1.0) * S,
             cy + random_double(-1.0, 1.0) * S,
