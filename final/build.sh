@@ -11,6 +11,7 @@ gcc $CFLAGS $SRC -o $OUT $LDFLAGS
 
 if [ $? -eq 0 ]; then
     echo "Build successful. Run with: ./$OUT"
+    ./$OUT
 else
     echo "Build failed."
 fi
