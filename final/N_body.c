@@ -10,7 +10,7 @@
 #define HEIGHT  800
 
 #define NUM_BODIES 3
-#define TRAIL_BUF  5000
+#define TRAIL_BUF  100
 #define MIN_DIST   1.5
 
 #define G        10000.0
@@ -361,10 +361,10 @@ int main(void)
         bodies[i] = (Planet){
             cx + random_double(-1.0, 1.0) * S,
             cy + random_double(-1.0, 1.0) * S,
-            cz + random_double(-1.0, 1.0) * S,
+            cz + random_double(-0.1, 0.1) * S,
             random_double(-1.0, 1.0) * VS,
             random_double(-1.0, 1.0) * VS,
-            random_double(-1.0, 1.0) * VS,
+            random_double(-0.1, 0.1) * VS,
             0.0, 0.0, 0.0,
             m, 15};
     }
