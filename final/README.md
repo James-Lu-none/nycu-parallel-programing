@@ -7,12 +7,14 @@ but in the calculation, every acceleration component is calculated in pair by ex
 (for body number i, acceleration calculations are only applied from body number i+1 to the last body),
 so the load in each thread becomes imbalanced, we can derive the calculation count as follow:
 
-let P = NUM_BODIES/NUM_THREADS
+let P = NUM_BODIES/NUM_THREADS where P>=1
 calc_count for thread i
 = sum(NUM_BODIES-k-1, k, P*i, P*(i+1))
 = (P*(NUM_THREADS-i-1)+P*(NUM_THREADS-i)-1)*P/2
 
 And here is the runtime result:
+NUM_BODIES = 100
+NUM_THREADS = 4
 
 ```log
 Thread 3: i_start=75, i_end=100, calc_count=300
@@ -35,11 +37,13 @@ In accelerations_thread_v2, the original iteration on NUM_BODIES is divided to N
 but different from accelerations_thread_v1, the acceleration component is calculated independently for each body i,
 although this approach adds redundant calculation in total, the load on each thread is balanced, we can derive the calculation count as follow:
 
-let P = NUM_BODIES/NUM_THREADS
+let P = NUM_BODIES/NUM_THREADS where P>=1
 calc_count for thread i
 = P*NUM_BODIES
 
 And here is the runtime result:
+NUM_BODIES = 100
+NUM_THREADS = 4
 
 ```log
 Thread 0: i_start=0, i_end=25, calc_count=2500
