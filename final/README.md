@@ -29,6 +29,32 @@ Thread 0: i_start=0, i_end=25, calc_count=2175
 Thread 1: i_start=25, i_end=50, calc_count=1550
 ```
 
+## accelerations_thread_v2
+
+In accelerations_thread_v2, the original iteration on NUM_BODIES is divided to NUM_THREADS to perform parallel acceleration calculation,
+but different from accelerations_thread_v1, the acceleration component is calculated independently for each body i,
+although this approach adds redundant calculation in total, the load on each thread is balanced, we can derive the calculation count as follow:
+
+let P = NUM_BODIES/NUM_THREADS
+calc_count for thread i
+= P*NUM_BODIES
+
+And here is the runtime result:
+
+```log
+Thread 0: i_start=0, i_end=25, calc_count=2500
+Thread 1: i_start=25, i_end=50, calc_count=2500
+Thread 2: i_start=50, i_end=75, calc_count=2500
+Thread 3: i_start=75, i_end=100, calc_count=2500
+Thread 0: i_start=0, i_end=25, calc_count=2500
+Thread 1: i_start=25, i_end=50, calc_count=2500
+Thread 2: i_start=50, i_end=75, calc_count=2500
+Thread 3: i_start=75, i_end=100, calc_count=2500
+Thread 0: i_start=0, i_end=25, calc_count=2500
+Thread 1: i_start=25, i_end=50, calc_count=2500
+Thread 2: i_start=50, i_end=75, calc_count=2500
+Thread 3: i_start=75, i_end=100, calc_count=2500
+```
 
 ## Three‑Body Problem Simulation
 
