@@ -22,6 +22,16 @@ uint32_t COLORS[] = {0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff,
 #define NUM_THREADS 4
 
 #define view_z 100.0
+
+typedef struct
+{
+    double r;
+    double theta;
+    double phi;
+} Camera;
+
+Camera cam = {100.0, 0.0, 0.0};
+
 typedef struct {
     double x, y, z;
     double vx, vy, vz;
