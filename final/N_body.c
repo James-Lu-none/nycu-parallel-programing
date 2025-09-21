@@ -98,6 +98,7 @@ static void *accelerations_thread_v1(void *arg)
     double *ax = A->t_ax;
     double *ay = A->t_ay;
 
+    // add t_N-1 to NUM_BODIES before divide by t_N to ensure all acceleration pairs (i,j) are covered
     int chunk = (NUM_BODIES + t_N - 1) / t_N;
     int i_start = t_id * chunk;
     int i_end = (i_start + chunk < NUM_BODIES) ? (i_start + chunk) : NUM_BODIES;
