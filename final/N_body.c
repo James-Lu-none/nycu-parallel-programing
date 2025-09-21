@@ -42,6 +42,18 @@ static void fill_circle(SDL_Surface *surf, int cx, int cy, int cz, int rad, Uint
 {
     int scaled_rad = rad * view_z / (view_z + cz);
     int rad2 = scaled_rad * scaled_rad;
+    double brightness = (view_z - cz) / view_z;
+    if (brightness < 0.2)
+        brightness = 0.2;
+    if (brightness > 1.0)
+        brightness = 1.0;
+    Uint8 r = (col >> 16) & 0xff;
+    Uint8 g = (col >> 8) & 0xff;
+    Uint8 b = col & 0xff;
+    r = (Uint8)(r * brightness);
+    g = (Uint8)(g * brightness);
+    b = (Uint8)(b * brightness);
+    Uint32 adj_col = (r << 16) | (g << 8) | b;
     for (int dy = -scaled_rad; dy <= scaled_rad; ++dy)
     {
         for (int dx = -scaled_rad; dx <= scaled_rad; ++dx)
@@ -51,7 +63,7 @@ static void fill_circle(SDL_Surface *surf, int cx, int cy, int cz, int rad, Uint
                 int py = cy + dy;
                 if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT) {
                     SDL_Rect pixel = { px, py, 1, 1 };
-                    SDL_FillRect(surf, &pixel, col);
+                    SDL_FillRect(surf, &pixel, adj_col);
                 }
             }
         }
@@ -84,8 +96,20 @@ static void trail_draw(SDL_Surface *surf, const Trail *t, Uint32 col)
     for (int i = 0; i < t->size; ++i) {
         int idx = (t->head - 1 - i + TRAIL_BUF) % TRAIL_BUF;
         int scaled_rad = 2 * view_z / (view_z + t->z[idx]);
+        double brightness = (view_z - t->z[idx]) / view_z;
+        if (brightness < 0.2)
+            brightness = 0.2;
+        if (brightness > 1.0)
+            brightness = 1.0;
+        Uint8 r = (col >> 16) & 0xff;
+        Uint8 g = (col >> 8) & 0xff;
+        Uint8 b = col & 0xff;
+        r = (Uint8)(r * brightness);
+        g = (Uint8)(g * brightness);
+        b = (Uint8)(b * brightness);
+        Uint32 adj_col = (r << 16) | (g << 8) | b;
         SDL_Rect p = { t->x[idx], t->y[idx], scaled_rad, scaled_rad };
-        SDL_FillRect(surf, &p, col);
+        SDL_FillRect(surf, &p, adj_col);
     }
 }
 
