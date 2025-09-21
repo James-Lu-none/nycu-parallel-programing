@@ -83,7 +83,8 @@ static void trail_draw(SDL_Surface *surf, const Trail *t, Uint32 col)
 {
     for (int i = 0; i < t->size; ++i) {
         int idx = (t->head - 1 - i + TRAIL_BUF) % TRAIL_BUF;
-        SDL_Rect p = { t->x[idx], t->y[idx], 2, 2 };
+        int scaled_rad = 2 * view_z / (view_z + t->z[idx]);
+        SDL_Rect p = { t->x[idx], t->y[idx], scaled_rad, scaled_rad };
         SDL_FillRect(surf, &p, col);
     }
 }
