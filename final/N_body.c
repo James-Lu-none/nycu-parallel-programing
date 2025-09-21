@@ -23,6 +23,7 @@ uint32_t COLORS[] = {0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff,
 typedef struct {
     double x, y;
     double vx, vy;
+    double ax, ay;
     double mass;
     double r;
 } Planet;
@@ -128,7 +129,7 @@ static void *accelerations_thread_v1(void *arg)
     return NULL;
 }
 
-static void accelerations_parallel(const Planet b[], double ax[], double ay[])
+static void accelerations_parallel(Planet b[])
 {
     int t_N = NUM_THREADS > NUM_BODIES ? NUM_BODIES : NUM_THREADS;
 
@@ -143,7 +144,7 @@ static void accelerations_parallel(const Planet b[], double ax[], double ay[])
         t_ay[t] = calloc(NUM_BODIES, sizeof(double));
     }
 
-    for (int i = 0; i < NUM_BODIES; ++i) ax[i] = ay[i] = 0.0;
+    for (int i = 0; i < NUM_BODIES; ++i) b[i].ax = b[i].ay = 0.0;
 
     for (int t = 0; t < t_N; ++t)
     {
@@ -164,8 +165,8 @@ static void accelerations_parallel(const Planet b[], double ax[], double ay[])
     {
         for (int i = 0; i < NUM_BODIES; ++i)
         {
-            ax[i] += t_ax[t][i];
-            ay[i] += t_ay[t][i];
+            b[i].ax += t_ax[t][i];
+            b[i].ay += t_ay[t][i];
         }
     }
     
@@ -205,26 +206,25 @@ static void accelerations(const Planet b[], double ax[], double ay[])
 
 static void step_leapfrog(Planet b[], double dt)
 {
-    static double ax[NUM_BODIES], ay[NUM_BODIES];
     static int first = 1;
 
     if (first) {
-        accelerations_parallel(b, ax, ay);
+        accelerations_parallel(b);
         first = 0;
     }
 
     for (int i = 0; i < NUM_BODIES; ++i) {
-        b[i].vx += 0.5 * ax[i] * dt;
-        b[i].vy += 0.5 * ay[i] * dt;
+        b[i].vx += 0.5 * b[i].ax * dt;
+        b[i].vy += 0.5 * b[i].ay * dt;
         b[i].x  +=      b[i].vx * dt;
         b[i].y  +=      b[i].vy * dt;
     }
 
-    accelerations_parallel(b, ax, ay);
+    accelerations_parallel(b);
 
     for (int i = 0; i < NUM_BODIES; ++i) {
-        b[i].vx += 0.5 * ax[i] * dt;
-        b[i].vy += 0.5 * ay[i] * dt;
+        b[i].vx += 0.5 * b[i].ax * dt;
+        b[i].vy += 0.5 * b[i].ay * dt;
     }
 }
 
@@ -289,6 +289,7 @@ int main(void)
             cy + random_double(-1.0, 1.0) * S,
             random_double(-1.0, 1.0) * VS,
             random_double(-1.0, 1.0) * VS,
+            0.0, 0.0,
             m, 15};
     }
 
