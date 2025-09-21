@@ -9,7 +9,7 @@
 #define WIDTH   1200
 #define HEIGHT  800
 
-#define NUM_BODIES 10
+#define NUM_BODIES 3
 #define TRAIL_BUF  5000
 #define MIN_DIST   1.5
 
@@ -129,6 +129,44 @@ static void *accelerations_thread_v1(void *arg)
     return NULL;
 }
 
+static void *accelerations_thread_v2(void *arg)
+{
+    AccelerationArgsV1 *A = (AccelerationArgsV1 *)arg;
+    const Planet *b = A->b;
+    int t_id = A->t_id;
+    int t_N = A->t_N;
+
+    double *ax = A->t_ax;
+    double *ay = A->t_ay;
+
+    // add t_N-1 to NUM_BODIES before divide by t_N to ensure all acceleration pairs (i,j) are covered
+    int chunk = (NUM_BODIES + t_N - 1) / t_N;
+    int i_start = t_id * chunk;
+    int i_end = (i_start + chunk < NUM_BODIES) ? (i_start + chunk) : NUM_BODIES;
+    int count = 0;
+
+    for (int i = i_start; i < i_end; ++i)
+    {
+        for (int j = 0; j < NUM_BODIES; ++j)
+        {
+            double dx = b[j].x - b[i].x;
+            double dy = b[j].y - b[i].y;
+            double dist2 = dx * dx + dy * dy + EPSILON;
+            double dist = sqrt(dist2);
+
+            double F = (G * b[i].mass * b[j].mass) / dist2;
+            double fx = F * dx / dist;
+            double fy = F * dy / dist;
+
+            ax[i] += fx / b[i].mass;
+            ay[i] += fy / b[i].mass;
+            count++;
+        }
+    }
+    printf("Thread %d: i_start=%d, i_end=%d, calc_count=%d\n", t_id, i_start, i_end, count);
+    return NULL;
+}
+
 static void accelerations_parallel(Planet b[])
 {
     int t_N = NUM_THREADS > NUM_BODIES ? NUM_BODIES : NUM_THREADS;
@@ -153,7 +191,7 @@ static void accelerations_parallel(Planet b[])
         args[t].t_N = t_N;
         args[t].t_ax = t_ax[t];
         args[t].t_ay = t_ay[t];
-        pthread_create(&threads[t], NULL, accelerations_thread_v1, &args[t]);
+        pthread_create(&threads[t], NULL, accelerations_thread_v2, &args[t]);
     }
 
     for (int t = 0; t < t_N; ++t)
