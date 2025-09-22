@@ -49,8 +49,35 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
   // Your solution should work for any value of
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
+  __pp_vec_float x;
+  __pp_vec_int y;
+  
+  __pp_vec_int zeros = _pp_vset_int(0);
+  __pp_vec_int ones = _pp_vset_int(1);
+  const static float max = 9.999999f;
+  __pp_vec_float vmax = _pp_vset_float(max);
+  __pp_mask maskNotDone, maskAll, maskExpIsGtZero, maskResultIsGtMax, maskAllCondition;
+  maskAll = _pp_init_ones();
+
   for (int i = 0; i < N; i += VECTOR_WIDTH)
   {
+    _pp_vload_float(x, values + i, maskAll);
+    _pp_vload_int(y, exponents + i, maskAll);
+    __pp_vec_float result = _pp_vset_float(1.0f);
+    do {
+      // subtract exp by 1 if exp > 0
+      _pp_vgt_int(maskExpIsGtZero, y, zeros, maskAll);
+      _pp_vsub_int(y, y, ones, maskExpIsGtZero);
+      // perform multiply
+      _pp_vmult_float(result, result, x, maskExpIsGtZero);
+      // set result to max if result > max
+      _pp_vgt_float(maskResultIsGtMax, result, vmax, maskAll);
+      _pp_vset_float(result, max, maskResultIsGtMax);
+
+      maskResultIsGtMax = _pp_mask_not(maskResultIsGtMax);
+      maskNotDone = _pp_mask_and(maskExpIsGtZero, maskResultIsGtMax);
+    } while (_pp_cntbits(maskNotDone) > 0);
+    _pp_vstore_float(output + i, result, maskAll);
   }
 }
 
