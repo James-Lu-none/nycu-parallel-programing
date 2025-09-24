@@ -59,6 +59,7 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
   __pp_mask maskNotDone, maskExpIsGtZero, maskExpIsNotGtZero, maskResultIsGtMax, maskResultIsNotGtMax;
   __pp_mask maskAll = _pp_init_ones();
   __pp_mask maskNotAll = _pp_init_ones(0);
+  __pp_mask maskOutOffBound = _pp_init_ones(N % VECTOR_WIDTH);
 
   for (int i = 0; i < N; i += VECTOR_WIDTH)
   {
@@ -67,7 +68,6 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
     __pp_vec_float result = _pp_vset_float(1.0f);
     maskNotDone = maskAll;
     maskExpIsGtZero = maskResultIsGtMax = maskNotAll;
-    printf("%d \n",i);
     do {
       // subtract exp by 1 if exp > 0
       _pp_vgt_int(maskExpIsGtZero, y, zeros, maskNotDone);
@@ -79,9 +79,15 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
       _pp_vset_float(result, max, maskResultIsGtMax);
       maskResultIsNotGtMax = _pp_mask_not(maskResultIsGtMax);
       maskNotDone = _pp_mask_and(maskExpIsGtZero, maskResultIsNotGtMax);
-      // printf("%d \n", _pp_cntbits(maskNotDone));
     } while (_pp_cntbits(maskNotDone) > 0);
-    _pp_vstore_float(output + i, result, maskAll);
+    if (i == (N / VECTOR_WIDTH) * VECTOR_WIDTH)
+    {
+      _pp_vstore_float(output + i, result, maskOutOffBound);
+    }
+    else
+    {
+      _pp_vstore_float(output + i, result, maskAll);
+    }
   }
 }
 
