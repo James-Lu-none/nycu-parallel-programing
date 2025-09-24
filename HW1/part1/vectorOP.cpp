@@ -56,7 +56,7 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
   __pp_vec_int ones = _pp_vset_int(1);
   const static float max = 9.999999f;
   __pp_vec_float vmax = _pp_vset_float(max);
-  __pp_mask maskNotDone, maskAll, maskExpIsGtZero, maskResultIsGtMax;
+  __pp_mask maskAll, maskExpIsGtZero, maskResultIsGtMax;
   __pp_mask maskOutOffBound = _pp_init_ones(N % VECTOR_WIDTH);
   maskAll = _pp_init_ones();
 
@@ -71,13 +71,10 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
       _pp_vsub_int(y, y, ones, maskExpIsGtZero);
       // perform multiply
       _pp_vmult_float(result, result, x, maskExpIsGtZero);
-      // set result to max if result > max
-      _pp_vgt_float(maskResultIsGtMax, result, vmax, maskAll);
-      _pp_vset_float(result, max, maskResultIsGtMax);
-
-      maskResultIsGtMax = _pp_mask_not(maskResultIsGtMax);
-      maskNotDone = _pp_mask_and(maskExpIsGtZero, maskResultIsGtMax);
-    } while (_pp_cntbits(maskNotDone) > 0);
+    } while (_pp_cntbits(maskExpIsGtZero) > 0);
+    // set result to max if result > max
+    _pp_vgt_float(maskResultIsGtMax, result, vmax, maskAll);
+    _pp_vset_float(result, max, maskResultIsGtMax);
     if (i == (N / VECTOR_WIDTH) * VECTOR_WIDTH)
     {
       _pp_vstore_float(output + i, result, maskOutOffBound);
