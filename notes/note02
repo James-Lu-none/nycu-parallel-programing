@@ -77,8 +77,8 @@ VLIW (Very Long Instruction Word)
 ISA view: HW binder
 VLIW: SW binder
 
-
 ## SIMD (Single Instruction, Multiple Data)
+
 vector processing: too flexible, too expensive
 SIMD: less flexible, less expensive
 
@@ -92,6 +92,7 @@ sub word parallelism: multiple data in one register
 treat a 32-bit register as a vector of 4 8-bit integers, 2 16-bit integers, or 1 32-bit integer
 
 how to explicitly tell compiler to use SIMD instructions if compiler doesn't parallelize the code?
+
 1. inline assembly (not portable)
 2. intrinsic functions (higher portability, compiler-specific)
 
@@ -100,11 +101,13 @@ how to explicitly tell compiler to use SIMD instructions if compiler doesn't par
 common notions of thread creation
 
 if hardware does the context switch, it requires
+
 1. separate PC
 2. separate register set
 3. separate stack (separate page table)
 
 # simultaneous multithreading (SMT) (hyper-threading from Intel)
+
 combine of hardware thread and multithreading
 multiple threads share the same physical core
 ex: two thread doesn't use the same functional unit at the same time, so they can be executed in parallel in the same core
@@ -119,6 +122,7 @@ MISD: multiple instruction single data (not exist in reality)
 MIMD: multiple instruction multiple data (multi-core, multi-processor, multi-computers)
 
 # types of shared memory architectures
+
 1. UMA (Uniform Memory Access)
 all processors share the same physical memory
 memory access time is uniform
@@ -129,9 +133,10 @@ memory access time is non-uniform
 before, memory controller is in the north bridge chipset, so all cpu memory access time is uniform (UMA)
 now, memory controller is in the cpu, so each cpu has its own local memory, and can also access other cpu's memory (NUMA)
 
-# UMA 
+# UMA
 
 ## cache coherence problem
+
 write back vs write through
 write back: write to cache, and write to memory when evicted
 write through: write to cache and memory at the same time
@@ -141,10 +146,14 @@ write through is not enough for cache coherence since other processor's cache ma
 invalidate other processors' caches when a cache line is written
 example: 8 core AMD Opteron
 
+solved by hardware protocol
+
 # NUMA
 
 coherence is not enough
+
 ## memory consistency model
+
 specification of the order in which memory operations (read and write) appear to execute to the programmer
 ex: sequential consistency: only one processor can access the memory at a time, and the result is the same as if the operations of all the processors were executed in some sequential order, and the operations of each individual processor appear in this sequence in the order issued by that processor
 
@@ -153,6 +162,16 @@ CPU0         CPU1
 A=0          A=0
 A=1          A=1
 print A       print A
+
+solved by software (compiler, programmer)
+
+## serial consistency model
+
+at one time, only one processor can access the memory
+
+## relaxed consistency models
+
+at certain time, multiple processors can access the memory
 
 ## summerize
 
