@@ -51,7 +51,7 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
   //
   __pp_vec_float x;
   __pp_vec_int y;
-  
+
   __pp_vec_int zeros = _pp_vset_int(0);
   __pp_vec_int ones = _pp_vset_int(1);
   const static float max = 9.999999f;
@@ -65,11 +65,9 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
     _pp_vload_float(x, values + i, maskAll);
     _pp_vload_int(y, exponents + i, maskAll);
     __pp_vec_float result = _pp_vset_float(1.0f);
-    maskNotDone = maskAll;
-    maskExpIsGtZero = maskResultIsGtMax = maskNotAll;
     do {
       // subtract exp by 1 if exp > 0
-      _pp_vgt_int(maskExpIsGtZero, y, zeros, maskNotDone);
+      _pp_vgt_int(maskExpIsGtZero, y, zeros, maskAll);
       _pp_vsub_int(y, y, ones, maskExpIsGtZero);
       // perform multiply
       _pp_vmult_float(result, result, x, maskExpIsGtZero);
