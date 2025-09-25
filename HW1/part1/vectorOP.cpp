@@ -56,10 +56,9 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
   __pp_vec_int ones = _pp_vset_int(1);
   const static float max = 9.999999f;
   __pp_vec_float vmax = _pp_vset_float(max);
-  __pp_mask maskNotDone, maskExpIsGtZero, maskExpIsNotGtZero, maskResultIsGtMax, maskResultIsNotGtMax;
-  __pp_mask maskAll = _pp_init_ones();
-  __pp_mask maskNotAll = _pp_init_ones(0);
+  __pp_mask maskAll, maskExpIsGtZero, maskResultIsGtMax;
   __pp_mask maskOutOffBound = _pp_init_ones(N % VECTOR_WIDTH);
+  maskAll = _pp_init_ones();
 
   for (int i = 0; i < N; i += VECTOR_WIDTH)
   {
@@ -74,12 +73,10 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
       _pp_vsub_int(y, y, ones, maskExpIsGtZero);
       // perform multiply
       _pp_vmult_float(result, result, x, maskExpIsGtZero);
-      // set result to max if result > max
-      _pp_vgt_float(maskResultIsGtMax, result, vmax, maskExpIsGtZero);
-      _pp_vset_float(result, max, maskResultIsGtMax);
-      maskResultIsNotGtMax = _pp_mask_not(maskResultIsGtMax);
-      maskNotDone = _pp_mask_and(maskExpIsGtZero, maskResultIsNotGtMax);
-    } while (_pp_cntbits(maskNotDone) > 0);
+    } while (_pp_cntbits(maskExpIsGtZero) > 0);
+    // set result to max if result > max
+    _pp_vgt_float(maskResultIsGtMax, result, vmax, maskAll);
+    _pp_vset_float(result, max, maskResultIsGtMax);
     if (i == (N / VECTOR_WIDTH) * VECTOR_WIDTH)
     {
       _pp_vstore_float(output + i, result, maskOutOffBound);
@@ -101,9 +98,19 @@ float arraySumVector(float *values, int N)
   // PP STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
 
+  __pp_vec_float x;
+  __pp_vec_float result = _pp_vset_float(0.0f);
+  __pp_mask maskAll = _pp_init_ones();
+
   for (int i = 0; i < N; i += VECTOR_WIDTH)
   {
+    _pp_vload_float(x, values + i, maskAll);
+    _pp_vadd_float(result, result, x, maskAll);
   }
-
-  return 0.0;
+  for (int i = 1; i < VECTOR_WIDTH; i *= 2)
+  {
+    _pp_hadd_float(result, result);
+    _pp_interleave_float(result, result);
+  }
+  return result.value[0];
 }
