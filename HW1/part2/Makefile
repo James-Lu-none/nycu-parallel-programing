@@ -4,7 +4,7 @@ OBJS := main.o test1.o test2.o test3.o
 
 CC := clang
 
-CFLAGS := -O3 -std=c11 -Wall -D_POSIX_C_SOURCE=200809L
+CFLAGS := -O3 -std=c11 -Wall -g -D_POSIX_C_SOURCE=200809L
 
 ifeq ($(ASSEMBLE),1)
 	CFLAGS += -S
