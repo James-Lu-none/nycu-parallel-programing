@@ -42,6 +42,21 @@ void worker_thread_start(WorkerArgs *const args)
     // modify it to pursue a better performance.
 
     printf("Hello world from thread %d\n", args->threadId);
+
+    int numThreads = args->numThreads;
+    int threadId = args->threadId;
+    int height = args->height;
+    int width = args->width;
+    int chunk = height / numThreads;
+    int start_row = threadId * chunk;
+    int total_rows = (start_row > height) ? height - start_row : chunk;
+    int x0 = args->x0;
+    int x1 = args->x1;
+    int y0 = args->y0;
+    int y1 = args->y1;
+    int maxIterations = args->maxIterations;
+    int *output = args->output;
+    mandelbrot_serial(x0, y0, x1, y1, width, height, start_row, total_rows , maxIterations, output);
 }
 
 //
