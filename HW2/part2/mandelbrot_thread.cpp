@@ -50,10 +50,10 @@ void worker_thread_start(WorkerArgs *const args)
     int chunk = height / numThreads;
     int start_row = threadId * chunk;
     int total_rows = (start_row > height) ? height - start_row : chunk;
-    int x0 = args->x0;
-    int x1 = args->x1;
-    int y0 = args->y0;
-    int y1 = args->y1;
+    float x0 = args->x0;
+    float x1 = args->x1;
+    float y0 = args->y0;
+    float y1 = args->y1;
     int maxIterations = args->maxIterations;
     int *output = args->output;
     mandelbrot_serial(x0, y0, x1, y1, width, height, start_row, total_rows , maxIterations, output);
