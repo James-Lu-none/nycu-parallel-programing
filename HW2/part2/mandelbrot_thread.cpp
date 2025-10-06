@@ -47,9 +47,10 @@ void worker_thread_start(WorkerArgs *const args)
     int threadId = args->threadId;
     int height = args->height;
     int width = args->width;
-    int chunk = height / numThreads;
-    int start_row = threadId * chunk;
-    int total_rows = (start_row > height) ? height - start_row : chunk;
+    int baseChunk = height / numThreads;
+    int remainder = height % numThreads;
+    int start_row = threadId * baseChunk + (threadId < remainder? threadId : remainder);
+    int total_rows = baseChunk + (threadId < remainder ? 1 : 0);
     float x0 = args->x0;
     float x1 = args->x1;
     float y0 = args->y0;
