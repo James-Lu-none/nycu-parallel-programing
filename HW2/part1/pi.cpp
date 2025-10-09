@@ -38,7 +38,6 @@ void *thread_monte_carlo_pi(void *arg)
 
 int main(int argc, char **argv)
 {
-    unsigned int seed = time(NULL);
     if (argc < 3) {
         usage(argv[0]);
         return 1;
@@ -65,10 +64,10 @@ int main(int argc, char **argv)
     pthread_t *thread_handles;
     thread_handles = (pthread_t *)malloc(threads * sizeof(pthread_t));
 
-    for (int t=0; t<threads; ++t){
+    for (long t=0; t<threads; ++t){
         pthread_create(&thread_handles[t], NULL, thread_monte_carlo_pi, (void*)t);
     }
-    for (int t = 0; t < threads; ++t)
+    for (long t = 0; t < threads; ++t)
     {
         pthread_join(thread_handles[t], NULL);
     }
