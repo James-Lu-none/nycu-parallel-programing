@@ -13,6 +13,7 @@ long threads;
 long long int n;
 long long int hits;
 pthread_mutex_t mutex;
+#include <immintrin.h>
 
 void *thread_monte_carlo_pi(void *arg)
 {
@@ -22,16 +23,36 @@ void *thread_monte_carlo_pi(void *arg)
     int remainder = n % threads;
     int start = threadId * baseChunk + (threadId < remainder ? threadId : remainder);
     int end = start + baseChunk + (threadId < remainder ? 1 : 0);
-    long local_hits;
-    for (long long int i = start; i < end; ++i) {
+    long local_hits = 0;
+    
+    int simd_iters = (end - start) / 8;
+    int leftover = (end - start) % 8;
+
+    for (int i = 0; i < simd_iters; ++i) {
+        float xs[8], ys[8];
+        for (int j = 0; j < 8; ++j) {
+            xs[j] = rand_r(&seed) / (float)RAND_MAX;
+            ys[j] = rand_r(&seed) / (float)RAND_MAX;
+        }
+        __m256 vx = _mm256_loadu_ps(xs);
+        __m256 vy = _mm256_loadu_ps(ys);
+        __m256 vxsq = _mm256_mul_ps(vx, vx);
+        __m256 vysq = _mm256_mul_ps(vy, vy);
+        __m256 vsum = _mm256_add_ps(vxsq, vysq);
+        __m256 vmask = _mm256_cmp_ps(vsum, _mm256_set1_ps(1.0f), _CMP_LE_OS);
+        local_hits += _mm_popcnt_u32(_mm256_movemask_ps(vmask));
+    }
+
+    for (int i = 0; i < leftover; ++i) {
         float x = rand_r(&seed) / (float)RAND_MAX;
         float y = rand_r(&seed) / (float)RAND_MAX;
         if (x * x + y * y <= 1.0f) {
             local_hits++;
         }
     }
+
     pthread_mutex_lock(&mutex);
-    hits+=local_hits;
+    hits += local_hits;
     pthread_mutex_unlock(&mutex);
     return NULL;
 }

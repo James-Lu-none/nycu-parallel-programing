@@ -1,6 +1,6 @@
 CXX = g++
 
-CXXFLAGS = -Wall -Wextra -std=c++17
+CXXFLAGS = -Wall -mavx -Wextra -std=c++17
 
 TARGET = pi.out
 SRC = pi.cpp
