@@ -1,7 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <pthread.h>
-
+#include <stdint.h>
 
 void usage(char *progname) {
     fprintf(stderr, "Usage: %s <threads> <n>\n", progname);
@@ -15,10 +15,59 @@ long long int hits;
 pthread_mutex_t mutex;
 #include <immintrin.h>
 
+// 256-bit state (4x64)
+typedef struct
+{
+    uint64_t s[4];
+} xoshiro256_state;
+
+static inline uint64_t rotl(const uint64_t x, int k)
+{
+    return (x << k) | (x >> (64 - k));
+}
+
+static inline uint64_t xoshiro256ss(xoshiro256_state *state)
+{
+    const uint64_t result = rotl(state->s[1] * 5, 7) * 9;
+
+    const uint64_t t = state->s[1] << 17;
+
+    state->s[2] ^= state->s[0];
+    state->s[3] ^= state->s[1];
+    state->s[1] ^= state->s[2];
+    state->s[0] ^= state->s[3];
+
+    state->s[2] ^= t;
+    state->s[3] = rotl(state->s[3], 45);
+
+    return result;
+}
+
+#include <time.h>
+
+void seed_xoshiro(xoshiro256_state *st, uint64_t seed)
+{
+    // Simple splitmix64 seeding
+    uint64_t z = seed + 0x9E3779B97f4A7C15ULL;
+    for (int i = 0; i < 4; i++)
+    {
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+        z = z ^ (z >> 31);
+        st->s[i] = z;
+    }
+}
+
+float randf(xoshiro256_state *st)
+{
+    return (xoshiro256ss(st) >> 40) * (1.0f / (1ULL << 24));
+}
+
 void *thread_monte_carlo_pi(void *arg)
 {
     long threadId = (long)arg;
-    unsigned int seed = time(NULL) ^ threadId;
+    xoshiro256_state rng;
+    seed_xoshiro(&rng, time(NULL) ^ (threadId * 0x9E3779B1));
     int baseChunk = n / threads;
     int remainder = n % threads;
     int start = threadId * baseChunk + (threadId < remainder ? threadId : remainder);
@@ -31,8 +80,8 @@ void *thread_monte_carlo_pi(void *arg)
     for (int i = 0; i < simd_iters; ++i) {
         float xs[8], ys[8];
         for (int j = 0; j < 8; ++j) {
-            xs[j] = rand_r(&seed) / (float)RAND_MAX;
-            ys[j] = rand_r(&seed) / (float)RAND_MAX;
+            xs[j] = randf(&rng);
+            ys[j] = randf(&rng);
         }
         __m256 vx = _mm256_loadu_ps(xs);
         __m256 vy = _mm256_loadu_ps(ys);
@@ -44,8 +93,8 @@ void *thread_monte_carlo_pi(void *arg)
     }
 
     for (int i = 0; i < leftover; ++i) {
-        float x = rand_r(&seed) / (float)RAND_MAX;
-        float y = rand_r(&seed) / (float)RAND_MAX;
+        float x = randf(&rng);
+        float y = randf(&rng);
         if (x * x + y * y <= 1.0f) {
             local_hits++;
         }
