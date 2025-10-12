@@ -1,13 +1,16 @@
 CXX = g++
 CXXFLAGS = -O3 -Wall -mavx2 -march=native -Wextra -std=c++17
 
-TARGET = pi.out
-SRC = pi.cpp
+TARGETS = pi.out test_rng.out
+SRC = pi.cpp test_rng.cpp
 
-all: $(TARGET)
+all: $(TARGETS)
 
-$(TARGET): $(SRC)
+pi.out: pi.cpp
+	$(CXX) $(CXXFLAGS) $< -o $@
+
+test_rng.out: test_rng.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGETS)
