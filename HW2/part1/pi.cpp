@@ -5,15 +5,18 @@
 
 using namespace std;
 
-struct xoshiro256_state
+#include <cstdint>
+#include <immintrin.h>
+
+struct xoshiro64_state
 {
-    __m256i s0, s1, s2, s3;
+    __m256i s0, s1;
 
     void seed(uint64_t base_seed)
     {
-        uint64_t seeds[32];
+        uint64_t seeds[8];
         uint64_t z = base_seed;
-        for (int i = 0; i < 32; i++)
+        for (int i = 0; i < 8; i++)
         {
             z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
             z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
@@ -21,26 +24,52 @@ struct xoshiro256_state
             seeds[i] = z;
         }
         s0 = _mm256_loadu_si256((__m256i *)(seeds + 0));
-        s1 = _mm256_loadu_si256((__m256i *)(seeds + 8));
-        s2 = _mm256_loadu_si256((__m256i *)(seeds + 16));
-        s3 = _mm256_loadu_si256((__m256i *)(seeds + 24));
+        s1 = _mm256_loadu_si256((__m256i *)(seeds + 4));
     }
 
     __m256 randf()
     {
-        __m256i t = _mm256_slli_epi64(s1, 17);
+        __m256i t = _mm256_slli_epi64(s1, 13);
 
-        s2 = _mm256_xor_si256(s2, s0);
-        s3 = _mm256_xor_si256(s3, s1);
-        s1 = _mm256_xor_si256(s1, s2);
-        s0 = _mm256_xor_si256(s0, s3);
-        s2 = _mm256_xor_si256(s2, t);
-        s3 = _mm256_or_si256(_mm256_slli_epi64(s3, 45), _mm256_srli_epi64(s3, 64 - 45));
+        s1 = _mm256_xor_si256(s1, s0);
+        s0 = _mm256_xor_si256(s0, s1);
+        s1 = _mm256_xor_si256(s1, t);
+        s0 = _mm256_or_si256(_mm256_slli_epi64(s0, 17), _mm256_srli_epi64(s0, 64 - 17));
 
-        // Convert s1 (or s0) to float in [0,1)
-        __m256i res = s1; // take s1 as result
+        __m256i res = s0;
         __m256 resf = _mm256_cvtepi32_ps(_mm256_and_si256(res, _mm256_set1_epi32(0xFFFFFF)));
         return _mm256_mul_ps(resf, _mm256_set1_ps(1.0f / (1 << 24)));
+    }
+};
+
+struct xorshift32_state
+{
+    __m256i s;
+    
+    void seed(uint32_t base_seed)
+    {
+        uint32_t seeds[8];
+        uint32_t z = base_seed;
+        for (int i = 0; i < 8; i++)
+        {
+            z ^= z >> 13;
+            z ^= z << 17;
+            z ^= z >> 5;
+            seeds[i] = z;
+        }
+        s = _mm256_loadu_si256((__m256i *)seeds);
+    }
+
+    __m256 randf()
+    {
+        __m256i x = s;
+        x = _mm256_xor_si256(x, _mm256_slli_epi32(x, 13));
+        x = _mm256_xor_si256(x, _mm256_srli_epi32(x, 17));
+        x = _mm256_xor_si256(x, _mm256_slli_epi32(x, 5));
+        s = x;
+
+        __m256 resf = _mm256_cvtepi32_ps(_mm256_and_si256(x, _mm256_set1_epi32(0x7FFFFF)));
+        return _mm256_mul_ps(resf, _mm256_set1_ps(1.0f / (1 << 23)));
     }
 };
 
@@ -53,7 +82,8 @@ struct MonteCarloArgs
 
 static void monte_carlo_thread(MonteCarloArgs *args)
 {
-    xoshiro256_state rng;
+    xoshiro64_state rng;
+
     rng.seed((uint64_t)random_device{}() + args->start);
 
     uint64_t local_hits = 0;
