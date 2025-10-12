@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <thread>
-
+#include "cycle_timer.h"
 struct WorkerArgs
 {
     float x0, x1;
@@ -30,6 +30,7 @@ extern void mandelbrot_serial(float x0,
 // worker_thread_start --
 //
 // Thread entrypoint.
+
 void worker_thread_start(WorkerArgs *const args)
 {
 
@@ -57,7 +58,11 @@ void worker_thread_start(WorkerArgs *const args)
     float y1 = args->y1;
     int maxIterations = args->maxIterations;
     int *output = args->output;
+    double start_time = CycleTimer::current_seconds();
     mandelbrot_serial(x0, y0, x1, y1, width, height, start_row, total_rows , maxIterations, output);
+    double end_time = CycleTimer::current_seconds();
+
+    printf("Thread %d elapsed time: %lf seconds\n", threadId, end_time - start_time);
 }
 
 //
