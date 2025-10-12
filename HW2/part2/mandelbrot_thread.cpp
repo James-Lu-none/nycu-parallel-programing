@@ -42,7 +42,7 @@ void worker_thread_start(WorkerArgs *const args)
     // Of course, you can copy mandelbrot_serial() to this file and
     // modify it to pursue a better performance.
 
-    printf("Hello world from thread %d\n", args->threadId);
+    // printf("Hello world from thread %d\n", args->threadId);
 
     int numThreads = args->numThreads;
     int threadId = args->threadId;
@@ -54,14 +54,14 @@ void worker_thread_start(WorkerArgs *const args)
     float y1 = args->y1;
     int maxIterations = args->maxIterations;
     int *output = args->output;
-    double start_time = CycleTimer::current_seconds();
+    // double start_time = CycleTimer::current_seconds();
 
     for (int row = threadId; row < height; row += numThreads) {
         mandelbrot_serial(x0, y0, x1, y1, width, height, row, 1, maxIterations, output);
     }
 
-    double end_time = CycleTimer::current_seconds();
-    printf("Thread %d elapsed time: %lf seconds\n", threadId, end_time - start_time);
+    // double end_time = CycleTimer::current_seconds();
+    // printf("Thread %d elapsed time: %lf seconds\n", threadId, end_time - start_time);
 }
 
 //
