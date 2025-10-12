@@ -48,10 +48,6 @@ void worker_thread_start(WorkerArgs *const args)
     int threadId = args->threadId;
     int height = args->height;
     int width = args->width;
-    int baseChunk = height / numThreads;
-    int remainder = height % numThreads;
-    int start_row = threadId * baseChunk + (threadId < remainder? threadId : remainder);
-    int total_rows = baseChunk + (threadId < remainder ? 1 : 0);
     float x0 = args->x0;
     float x1 = args->x1;
     float y0 = args->y0;
@@ -59,9 +55,12 @@ void worker_thread_start(WorkerArgs *const args)
     int maxIterations = args->maxIterations;
     int *output = args->output;
     double start_time = CycleTimer::current_seconds();
-    mandelbrot_serial(x0, y0, x1, y1, width, height, start_row, total_rows , maxIterations, output);
-    double end_time = CycleTimer::current_seconds();
 
+    for (int row = threadId; row < height; row += numThreads) {
+        mandelbrot_serial(x0, y0, x1, y1, width, height, row, 1, maxIterations, output);
+    }
+
+    double end_time = CycleTimer::current_seconds();
     printf("Thread %d elapsed time: %lf seconds\n", threadId, end_time - start_time);
 }
 
