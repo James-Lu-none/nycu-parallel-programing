@@ -2,76 +2,9 @@
 #include <random>
 #include <thread>
 #include <vector>
+#include "rng.hpp"
 
 using namespace std;
-
-#include <cstdint>
-#include <immintrin.h>
-
-struct xoshiro64_state
-{
-    __m256i s0, s1;
-
-    void seed(uint64_t base_seed)
-    {
-        uint64_t seeds[8];
-        uint64_t z = base_seed;
-        for (int i = 0; i < 8; i++)
-        {
-            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
-            z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
-            z ^= z >> 31;
-            seeds[i] = z;
-        }
-        s0 = _mm256_loadu_si256((__m256i *)(seeds + 0));
-        s1 = _mm256_loadu_si256((__m256i *)(seeds + 4));
-    }
-
-    __m256 randf()
-    {
-        __m256i t = _mm256_slli_epi64(s1, 13);
-
-        s1 = _mm256_xor_si256(s1, s0);
-        s0 = _mm256_xor_si256(s0, s1);
-        s1 = _mm256_xor_si256(s1, t);
-        s0 = _mm256_or_si256(_mm256_slli_epi64(s0, 17), _mm256_srli_epi64(s0, 64 - 17));
-
-        __m256i res = s0;
-        __m256 resf = _mm256_cvtepi32_ps(_mm256_and_si256(res, _mm256_set1_epi32(0xFFFFFF)));
-        return _mm256_mul_ps(resf, _mm256_set1_ps(1.0f / (1 << 24)));
-    }
-};
-
-struct xorshift32_state
-{
-    __m256i s;
-    
-    void seed(uint32_t base_seed)
-    {
-        uint32_t seeds[8];
-        uint32_t z = base_seed;
-        for (int i = 0; i < 8; i++)
-        {
-            z ^= z >> 13;
-            z ^= z << 17;
-            z ^= z >> 5;
-            seeds[i] = z;
-        }
-        s = _mm256_loadu_si256((__m256i *)seeds);
-    }
-
-    __m256 randf()
-    {
-        __m256i x = s;
-        x = _mm256_xor_si256(x, _mm256_slli_epi32(x, 13));
-        x = _mm256_xor_si256(x, _mm256_srli_epi32(x, 17));
-        x = _mm256_xor_si256(x, _mm256_slli_epi32(x, 5));
-        s = x;
-
-        __m256 resf = _mm256_cvtepi32_ps(_mm256_and_si256(x, _mm256_set1_epi32(0x7FFFFF)));
-        return _mm256_mul_ps(resf, _mm256_set1_ps(1.0f / (1 << 23)));
-    }
-};
 
 struct MonteCarloArgs
 {
