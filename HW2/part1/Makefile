@@ -1,23 +1,13 @@
 CXX = g++
-
-CXXFLAGS = -O3 -Wall -mavx -Wextra -std=c++17
+CXXFLAGS = -O3 -Wall -mavx2 -march=native -Wextra -std=c++17
 
 TARGET = pi.out
 SRC = pi.cpp
 
-# Generate object file names from source files
-OBJS = $(SRC:.cpp=.o)
-
-# Default target: build the executable
 all: $(TARGET)
 
-# Rule to link object files into the executable
-$(TARGET): $(OBJS)
-	$(CXX) $(OBJS) -o $(TARGET)
-
-# Rule to compile .cpp files into .o files
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(TARGET)
