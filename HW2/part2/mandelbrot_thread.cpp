@@ -3,17 +3,10 @@
 #include <cstdlib>
 #include <thread>
 #include "cycle_timer.h"
-struct WorkerArgs
-{
-    float x0, x1;
-    float y0, y1;
-    unsigned int width;
-    unsigned int height;
-    int maxIterations;
-    int *output;
-    int threadId;
-    int numThreads;
-};
+
+float g_x0, g_y0, g_x1, g_y1;
+int g_width, g_height, g_max_iterations, g_num_threads;
+int *g_output;
 
 extern void mandelbrot_serial(float x0,
                               float y0,
@@ -31,7 +24,7 @@ extern void mandelbrot_serial(float x0,
 //
 // Thread entrypoint.
 
-void worker_thread_start(WorkerArgs *const args)
+void worker_thread_start(void *args)
 {
 
     // TODO FOR PP STUDENTS: Implement the body of the worker
@@ -44,20 +37,12 @@ void worker_thread_start(WorkerArgs *const args)
 
     // printf("Hello world from thread %d\n", args->threadId);
 
-    int numThreads = args->numThreads;
-    int threadId = args->threadId;
-    int height = args->height;
-    int width = args->width;
-    float x0 = args->x0;
-    float x1 = args->x1;
-    float y0 = args->y0;
-    float y1 = args->y1;
-    int maxIterations = args->maxIterations;
-    int *output = args->output;
+    long threadId = (long) args;
     // double start_time = CycleTimer::current_seconds();
 
-    for (int row = threadId; row < height; row += numThreads) {
-        mandelbrot_serial(x0, y0, x1, y1, width, height, row, 1, maxIterations, output);
+    for (int row = threadId; row < g_height; row += g_num_threads)
+    {
+        mandelbrot_serial(g_x0, g_y0, g_x1, g_y1, g_width, g_height, row, 1, g_max_iterations, g_output);
     }
 
     // double end_time = CycleTimer::current_seconds();
@@ -80,8 +65,17 @@ void mandelbrot_thread(int num_threads,
                        int *output)
 {
     static constexpr int max_threads = 32;
+    g_x0 = x0;
+    g_y0 = y0;
+    g_x1 = x1;
+    g_y1 = y1;
+    g_width = width;
+    g_height = height;
+    g_max_iterations = max_iterations;
+    g_output = output;
+    g_num_threads = num_threads;
 
-    if (num_threads > max_threads)
+    if (g_num_threads > max_threads)
     {
         fprintf(stderr, "Error: Max allowed threads is %d\n", max_threads);
         exit(1);
@@ -89,38 +83,19 @@ void mandelbrot_thread(int num_threads,
 
     // Creates thread objects that do not yet represent a thread.
     std::array<std::thread, max_threads> workers;
-    std::array<WorkerArgs, max_threads> args = {};
-
-    for (int i = 0; i < num_threads; i++)
-    {
-        // TODO FOR PP STUDENTS: You may or may not wish to modify
-        // the per-thread arguments here.  The code below copies the
-        // same arguments for each thread
-        args[i].x0 = x0;
-        args[i].y0 = y0;
-        args[i].x1 = x1;
-        args[i].y1 = y1;
-        args[i].width = width;
-        args[i].height = height;
-        args[i].maxIterations = max_iterations;
-        args[i].numThreads = num_threads;
-        args[i].output = output;
-
-        args[i].threadId = i;
-    }
 
     // Spawn the worker threads.  Note that only numThreads-1 std::threads
     // are created and the main application thread is used as a worker
     // as well.
-    for (int i = 1; i < num_threads; i++)
+    for (int i = 1; i < g_num_threads; i++)
     {
-        workers[i] = std::thread(worker_thread_start, &args[i]);
+        workers[i] = std::thread(worker_thread_start, (void *)(long)i);
     }
 
-    worker_thread_start(&args[0]);
+    worker_thread_start((void *)0);
 
     // join worker threads
-    for (int i = 1; i < num_threads; i++)
+    for (int i = 1; i < g_num_threads; i++)
     {
         workers[i].join();
     }
