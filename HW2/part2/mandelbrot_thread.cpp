@@ -26,6 +26,17 @@ extern void mandelbrot_serial(float x0,
                               int max_iterations,
                               int *output);
 
+extern void mandelbrot_avx2(float x0,
+                            float y0,
+                            float x1,
+                            float y1,
+                            int width,
+                            int height,
+                            int start_row,
+                            int total_rows,
+                            int max_iterations,
+                            int *output);
+
 //
 // worker_thread_start --
 //
@@ -57,7 +68,7 @@ void worker_thread_start(WorkerArgs *const args)
     // double start_time = CycleTimer::current_seconds();
 
     for (int row = threadId; row < height; row += numThreads) {
-        mandelbrot_serial(x0, y0, x1, y1, width, height, row, 1, maxIterations, output);
+        mandelbrot_avx2(x0, y0, x1, y1, width, height, row, 1, maxIterations, output);
     }
 
     // double end_time = CycleTimer::current_seconds();

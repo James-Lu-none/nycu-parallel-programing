@@ -5,6 +5,16 @@
 #include <getopt.h>
 
 #include "cycle_timer.h"
+extern void mandelbrot_avx2(float x0,
+                            float y0,
+                            float x1,
+                            float y1,
+                            int width,
+                            int height,
+                            int start_row,
+                            int total_rows,
+                            int max_iterations,
+                            int *output);
 
 extern void mandelbrot_serial(float x0,
                               float y0,
@@ -144,7 +154,7 @@ int main(int argc, char **argv)
     {
         memset(output_serial, 0, width * height * sizeof(int));
         double start_time = CycleTimer::current_seconds();
-        mandelbrot_serial(x0, y0, x1, y1, width, height, 0, height, max_iterations, output_serial);
+        mandelbrot_avx2(x0, y0, x1, y1, width, height, 0, height, max_iterations, output_serial);
         double end_time = CycleTimer::current_seconds();
         min_serial = std::min(min_serial, end_time - start_time);
     }

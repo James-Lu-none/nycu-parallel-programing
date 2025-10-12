@@ -1,3 +1,4 @@
+#include <immintrin.h>
 /*
 
   Note: This code was modified from example code
@@ -97,6 +98,67 @@ void mandelbrot_serial(float x0,
 
             int index = ((j * width) + i);
             output[index] = mandel(x, y, max_iterations);
+        }
+    }
+}
+
+void mandelbrot_avx2(float x0,
+                     float y0,
+                     float x1,
+                     float y1,
+                     int width,
+                     int height,
+                     int start_row,
+                     int total_rows,
+                     int max_iterations,
+                     int *output)
+{
+    float dx = (x1 - x0) / (float)width;
+    float dy = (y1 - y0) / (float)height;
+
+    int end_row = start_row + total_rows;
+
+    for (int j = start_row; j < end_row; j++)
+    {
+        __m256 y_vec = _mm256_set1_ps(y0 + j * dy);
+
+        for (int i = 0; i < width; i += 8)
+        {
+            float x_vals[8];
+            for (int k = 0; k < 8; ++k)
+                x_vals[k] = x0 + (i + k) * dx;
+            __m256 x_vec = _mm256_loadu_ps(x_vals);
+
+            __m256 z_re = x_vec, c_re = x_vec;
+            __m256 z_im = y_vec, c_im = y_vec;
+
+            __m256i iter = _mm256_setzero_si256();
+            __m256 four = _mm256_set1_ps(4.f);
+
+            for (int n = 0; n < max_iterations; ++n)
+            {
+                __m256 z_re2 = _mm256_mul_ps(z_re, z_re);
+                __m256 z_im2 = _mm256_mul_ps(z_im, z_im);
+                __m256 mag2 = _mm256_add_ps(z_re2, z_im2);
+                __m256 mask = _mm256_cmp_ps(mag2, four, _CMP_LE_OQ);
+                if (_mm256_testz_ps(mask, _mm256_castsi256_ps(_mm256_set1_epi32(-1))))
+                    break;
+                
+                __m256 new_re = _mm256_sub_ps(z_re2, z_im2);
+                __m256 new_im = _mm256_mul_ps(_mm256_mul_ps(z_re, z_im), _mm256_set1_ps(2.f));
+                z_re = _mm256_add_ps(c_re, new_re);
+                z_im = _mm256_add_ps(c_im, new_im);
+                __m256i mask_int = _mm256_castps_si256(mask);
+                iter = _mm256_add_epi32(iter, _mm256_and_si256(mask_int, _mm256_set1_epi32(1)));
+            }
+            int index = j * width + i;
+            int iter_vals[8];
+            _mm256_storeu_si256((__m256i *)iter_vals, iter);
+
+            // handle the remaining pixels
+            int remaining = (8 > width - i)? (width - i) : 8;
+            for (int k = 0; k < remaining; ++k)
+                output[index + k] = iter_vals[k];
         }
     }
 }
