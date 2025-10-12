@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <thread>
+#include <vector>
 #include "cycle_timer.h"
 
 float g_x0, g_y0, g_x1, g_y1;
@@ -82,20 +83,20 @@ void mandelbrot_thread(int num_threads,
     }
 
     // Creates thread objects that do not yet represent a thread.
-    std::array<std::thread, max_threads> workers;
-
+    // std::array<std::thread, > workers;
+    std::vector<std::thread> workers(g_num_threads - 1);
     // Spawn the worker threads.  Note that only numThreads-1 std::threads
     // are created and the main application thread is used as a worker
     // as well.
-    for (int i = 1; i < g_num_threads; i++)
+    for (int i = 0; i < g_num_threads - 1; i++)
     {
         workers[i] = std::thread(worker_thread_start, (void *)(long)i);
     }
 
-    worker_thread_start((void *)0);
+    worker_thread_start((void *)(long)(g_num_threads - 1));
 
     // join worker threads
-    for (int i = 1; i < g_num_threads; i++)
+    for (int i = 0; i < g_num_threads - 1; i++)
     {
         workers[i].join();
     }
