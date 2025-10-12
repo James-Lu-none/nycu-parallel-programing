@@ -27,7 +27,7 @@ template <typename RNG> void benchmark_rng(const string &name, int num_samples, 
     for (int t = 0; t < num_threads; t++)
     {
         threads[t] = thread(
-            [t, &results, num_samples]()
+            [t, &results, num_samples, num_threads]()
             {
                 RNG rng;
                 rng.seed((uint64_t)random_device{}() + t);
@@ -74,7 +74,7 @@ template <typename RNG> void benchmark_rng(const string &name, int num_samples, 
 int main()
 {
     const int num_samples = 100'000'000;
-    const int num_threads = 4;
+    const int num_threads = 1;
 
     benchmark_rng<xoshiro256_state>("xoshiro256", num_samples, num_threads);
     benchmark_rng<xoshiro64_state>("xoshiro64", num_samples, num_threads);
