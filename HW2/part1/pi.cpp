@@ -45,6 +45,30 @@ static void monte_carlo_thread(MonteCarloArgs *args)
     args->hits = local_hits;
 }
 
+static void monte_carlo_threadd(MonteCarloArgs *args)
+{
+    xoshiro256d_state rng;
+
+    rng.seed((uint64_t)random_device{}() | (uint64_t)random_device{}() << 32);
+
+    uint64_t local_hits = 0;
+    uint64_t chunk = args->chunk;
+
+    __m256d one = _mm256_set1_pd(1.0);
+
+    for (uint64_t i = 0; i < chunk / 4; i++)
+    {
+        __m256d x = rng.randd();
+        __m256d y = rng.randd();
+
+        __m256d sum = _mm256_add_pd(_mm256_mul_pd(x, x), _mm256_mul_pd(y, y));
+        __m256d mask = _mm256_cmp_pd(sum, one, _CMP_LE_OS);
+        local_hits += _mm_popcnt_u32(_mm256_movemask_pd(mask));
+    }
+
+    args->hits = local_hits;
+}
+
 void usage(char *progname)
 {
     fprintf(stderr, "Usage: %s <threads> <n>\n", progname);
