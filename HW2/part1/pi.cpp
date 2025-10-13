@@ -8,7 +8,6 @@ using namespace std;
 
 struct MonteCarloArgs
 {
-    uint64_t start;
     uint64_t chunk;
     uint64_t hits;
 };
@@ -17,7 +16,7 @@ static void monte_carlo_thread(MonteCarloArgs *args)
 {
     xoshiro256_state rng;
 
-    rng.seed((uint64_t)random_device{}() + args->start);
+    rng.seed((uint64_t)random_device{}() | (uint64_t)random_device{}() << 32);
 
     uint64_t local_hits = 0;
     uint64_t chunk = args->chunk;
@@ -106,12 +105,10 @@ int main(int argc, char **argv)
     vector<MonteCarloArgs> threadArgs(num_threads);
 
     uint64_t chunk = n / num_threads;
-    uint64_t start = 0;
 
     for (uint8_t t = 0; t < num_threads; ++t)
     {
-        threadArgs[t] = {start, chunk, 0};
-        start += chunk;
+        threadArgs[t] = {chunk, 0};
         threads[t] = thread(monte_carlo_thread, &threadArgs[t]);
     }
 
