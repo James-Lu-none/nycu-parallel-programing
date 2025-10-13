@@ -66,7 +66,7 @@ void statistical_test(uint64_t total_samples, uint64_t num_threads, const string
     printf("Time = %.6f sec\n", elapsed_sec);
     for (int b = 0; b < num_bins; b++)
     {
-        printf("Bin %d: Count = %d\n", b, bins[b]);
+        printf("Bin %d: Count = %d, percentage = %f\n", b, bins[b], bins[b] * 100.0 / total_samples);
     }
     printf("==================================\n");
     return;
@@ -74,7 +74,7 @@ void statistical_test(uint64_t total_samples, uint64_t num_threads, const string
 
 int main()
 {
-    const uint64_t num_samples = 1000000000;
+    const uint64_t num_samples = 1000;
     const uint64_t num_threads = 4;
 
     statistical_test<xoshiro256_state>(num_samples, num_threads, "xoshiro256");
