@@ -25,6 +25,7 @@ extern void mandelbrot_serial(float x0,
 //
 // Thread entrypoint.
 
+const static int step = 30;
 void worker_thread_start(void *args)
 {
 
@@ -41,9 +42,10 @@ void worker_thread_start(void *args)
     long threadId = (long) args;
     // double start_time = CycleTimer::current_seconds();
 
-    for (int row = threadId; row < g_height; row += g_num_threads)
+    for (int row = threadId * step; row < g_height; row += g_num_threads * step)
     {
-        mandelbrot_serial(g_x0, g_y0, g_x1, g_y1, g_width, g_height, row, 1, g_max_iterations, g_output);
+        mandelbrot_serial(g_x0, g_y0, g_x1, g_y1, g_width, g_height, row, step, g_max_iterations,
+                          g_output);
     }
 
     // double end_time = CycleTimer::current_seconds();
