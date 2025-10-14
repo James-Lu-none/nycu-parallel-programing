@@ -21,24 +21,16 @@ static void monte_carlo_thread(MonteCarloArgs *args)
     uint64_t local_hits = 0;
     uint64_t chunk = args->chunk;
 
-    __m256d one = _mm256_set1_pd(1.0);
+    __m256 one = _mm256_set1_ps(1.0f);
 
     for (uint64_t i = 0; i < chunk / 8; i++)
     {
         __m256 x = rng.randf();
         __m256 y = rng.randf();
-        // load 8 float to 4*2 double
-        __m256d x_lo = _mm256_cvtps_pd(_mm256_castps256_ps128(x));
-        __m256d x_hi = _mm256_cvtps_pd(_mm256_extractf128_ps(x, 1));
-        __m256d y_lo = _mm256_cvtps_pd(_mm256_castps256_ps128(y));
-        __m256d y_hi = _mm256_cvtps_pd(_mm256_extractf128_ps(y, 1));
 
-        __m256d sum_hi = _mm256_add_pd(_mm256_mul_pd(x_hi, x_hi), _mm256_mul_pd(y_hi, y_hi));
-        __m256d mask_hi = _mm256_cmp_pd(sum_hi, one, _CMP_LE_OS);
-        local_hits += _mm_popcnt_u32(_mm256_movemask_pd(mask_hi));
-        __m256d sum_lo = _mm256_add_pd(_mm256_mul_pd(x_lo, x_lo), _mm256_mul_pd(y_lo, y_lo));
-        __m256d mask_lo = _mm256_cmp_pd(sum_lo, one, _CMP_LE_OS);
-        local_hits += _mm_popcnt_u32(_mm256_movemask_pd(mask_lo));
+        __m256 sum = _mm256_add_ps(_mm256_mul_ps(x, x), _mm256_mul_ps(y, y));
+        __m256 mask = _mm256_cmp_ps(sum, one, _CMP_LE_OS);
+        local_hits += _mm_popcnt_u32(_mm256_movemask_ps(mask));
     }
 
     args->hits = local_hits;
