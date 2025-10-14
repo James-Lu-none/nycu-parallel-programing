@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O3 -Wall -mavx2 -march=native -Wextra -std=c++17
+CXXFLAGS = -O3 -Wall -mavx2 -Wextra -std=c++17
 
 TARGETS = pi.out test_rng.out
 SRC = pi.cpp test_rng.cpp
