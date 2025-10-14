@@ -44,22 +44,19 @@ int mandel(float c_re, float c_im, int count)
 {
     float z_re = c_re, z_im = c_im;
     int i;
+    float q = (z_re - 0.25f) * (z_re - 0.25f) + z_im * z_im;
+    if (q * (q + (z_re - 0.25f)) <= 0.25f * z_im * z_im)
+    {
+        return 256;
+    }
+
+    // check if c=x+yi is in the period-2 bulb (main disk)
+    if ((z_re + 1.0f) * (z_re + 1.0f) + z_im * z_im <= 0.0625f)
+    {
+        return 256;
+    }
     for (i = 0; i < count; ++i)
     {
-        float q = (z_re - 0.25f) * (z_re - 0.25f) + z_im * z_im;
-        if (q * (q + (z_re - 0.25f)) <= 0.25f * z_im * z_im)
-        {
-            i = 256;
-            continue;
-        }
-
-        // check if c=x+yi is in the period-2 bulb (main disk)
-        if ((z_re + 1.0f) * (z_re + 1.0f) + z_im * z_im <= 0.0625f)
-        {
-            i = 256;
-            continue;
-        }
-
         if (z_re * z_re + z_im * z_im > 4.f)
             break;
 
