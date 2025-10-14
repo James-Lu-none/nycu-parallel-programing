@@ -15,7 +15,7 @@ struct MonteCarloArgs
 
 static void monte_carlo_thread(MonteCarloArgs *args)
 {
-    xoshiro256_state rng;
+    xorshift64_state rng;
     rng.seed(args->t_id);
 
     uint64_t local_hits = 0;
