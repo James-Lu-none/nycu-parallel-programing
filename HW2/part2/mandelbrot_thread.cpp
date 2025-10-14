@@ -1,31 +1,17 @@
-#include <array>
-#include <cstdio>
-#include <cstdlib>
+#include <immintrin.h>
 #include <thread>
 #include <vector>
 #include "cycle_timer.h"
 
-float g_x0, g_y0, g_x1, g_y1;
-int g_width, g_height, g_max_iterations, g_num_threads;
+float g_x0, g_y0, dx, dy;
+int g_width, g_height, g_num_threads;
 int *g_output;
-
-extern void mandelbrot_serial(float x0,
-                              float y0,
-                              float x1,
-                              float y1,
-                              int width,
-                              int height,
-                              int start_row,
-                              int num_rows,
-                              int max_iterations,
-                              int *output);
 
 //
 // worker_thread_start --
 //
 // Thread entrypoint.
 
-const static int step = 30;
 void worker_thread_start(void *args)
 {
 
@@ -41,13 +27,50 @@ void worker_thread_start(void *args)
 
     long threadId = (long) args;
     // double start_time = CycleTimer::current_seconds();
-
-    for (int row = threadId * step; row < g_height; row += g_num_threads * step)
+    // mandelbrot_serial(g_x0, g_y0, g_x1, g_y1, g_width, g_height, row, step, g_max_iterations,
+    //                   g_output);
+    for (int row = threadId; row < g_height; row += g_num_threads)
     {
-        mandelbrot_serial(g_x0, g_y0, g_x1, g_y1, g_width, g_height, row, step, g_max_iterations,
-                          g_output);
-    }
+        __m256 y_vec = _mm256_set1_ps(g_y0 + row * dy);
 
+        for (int i = 0; i < g_width; i += 8)
+        {
+            float x_vals[8];
+            for (int k = 0; k < 8; ++k)
+                x_vals[k] = g_x0 + (i + k) * dx;
+            __m256 x_vec = _mm256_loadu_ps(x_vals);
+
+            __m256 z_re = x_vec, c_re = x_vec;
+            __m256 z_im = y_vec, c_im = y_vec;
+
+            __m256i iter = _mm256_setzero_si256();
+            __m256 four = _mm256_set1_ps(4.f);
+
+            for (int n = 0; n < 256; ++n)
+            {
+                __m256 z_re2 = _mm256_mul_ps(z_re, z_re);
+                __m256 z_im2 = _mm256_mul_ps(z_im, z_im);
+                __m256 mag2 = _mm256_add_ps(z_re2, z_im2);
+                __m256 mask = _mm256_cmp_ps(mag2, four, _CMP_LE_OQ);
+                if (_mm256_testz_ps(mask, _mm256_castsi256_ps(_mm256_set1_epi32(-1))))
+                    break;
+
+                __m256 new_re = _mm256_sub_ps(z_re2, z_im2);
+                __m256 new_im = _mm256_mul_ps(_mm256_mul_ps(z_re, z_im), _mm256_set1_ps(2.f));
+                z_re = _mm256_add_ps(c_re, new_re);
+                z_im = _mm256_add_ps(c_im, new_im);
+                __m256i mask_int = _mm256_castps_si256(mask);
+                iter = _mm256_add_epi32(iter, _mm256_and_si256(mask_int, _mm256_set1_epi32(1)));
+            }
+            int index = row * g_width + i;
+            int iter_vals[8];
+            _mm256_storeu_si256((__m256i *)iter_vals, iter);
+
+            int remaining = (8 > g_width - i) ? (g_width - i) : 8;
+            for (int k = 0; k < remaining; ++k)
+                g_output[index + k] = iter_vals[k];
+        }
+    } 
     // double end_time = CycleTimer::current_seconds();
     // printf("Thread %d elapsed time: %lf seconds\n", threadId, end_time - start_time);
 }
@@ -68,13 +91,12 @@ void mandelbrot_thread(int num_threads,
                        int *output)
 {
     static constexpr int max_threads = 32;
+    dx = (x1 - x0) / width;
+    dy = (y1 - y0) / height;
     g_x0 = x0;
     g_y0 = y0;
-    g_x1 = x1;
-    g_y1 = y1;
     g_width = width;
     g_height = height;
-    g_max_iterations = max_iterations;
     g_output = output;
     g_num_threads = num_threads;
 
