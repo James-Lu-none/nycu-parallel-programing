@@ -1,4 +1,3 @@
-#include <immintrin.h>
 #include <thread>
 #include <vector>
 #include "cycle_timer.h"
@@ -14,63 +13,45 @@ int *g_output;
 
 void worker_thread_start(void *args)
 {
-
-    // TODO FOR PP STUDENTS: Implement the body of the worker
-    // thread here. Each thread could make a call to mandelbrot_serial()
-    // to compute a part of the output image. For example, in a
-    // program that uses two threads, thread 0 could compute the top
-    // half of the image and thread 1 could compute the bottom half.
-    // Of course, you can copy mandelbrot_serial() to this file and
-    // modify it to pursue a better performance.
-
     // printf("Hello world from thread %d\n", args->threadId);
 
     long threadId = (long) args;
     // double start_time = CycleTimer::current_seconds();
-    // mandelbrot_serial(g_x0, g_y0, g_x1, g_y1, g_width, g_height, row, step, g_max_iterations,
-    //                   g_output);
     for (int row = threadId; row < g_height; row += g_num_threads)
     {
-        __m256 y_vec = _mm256_set1_ps(g_y0 + row * dy);
-
-        for (int i = 0; i < g_width; i += 8)
+        float y = g_y0 + row * dy;
+        for (int col = 0; col < g_width; ++col)
         {
-            float x_vals[8];
-            for (int k = 0; k < 8; ++k)
-                x_vals[k] = g_x0 + (i + k) * dx;
-            __m256 x_vec = _mm256_loadu_ps(x_vals);
+            float x = g_x0 + col * dx;
 
-            __m256 z_re = x_vec, c_re = x_vec;
-            __m256 z_im = y_vec, c_im = y_vec;
-
-            __m256i iter = _mm256_setzero_si256();
-            __m256 four = _mm256_set1_ps(4.f);
-
-            for (int n = 0; n < 256; ++n)
+            // Check if in main cardioid
+            float q = (x - 0.25f) * (x - 0.25f) + y * y;
+            if (q * (q + (x - 0.25f)) <= 0.25f * y * y)
             {
-                __m256 z_re2 = _mm256_mul_ps(z_re, z_re);
-                __m256 z_im2 = _mm256_mul_ps(z_im, z_im);
-                __m256 mag2 = _mm256_add_ps(z_re2, z_im2);
-                __m256 mask = _mm256_cmp_ps(mag2, four, _CMP_LE_OQ);
-                if (_mm256_testz_ps(mask, _mm256_castsi256_ps(_mm256_set1_epi32(-1))))
-                    break;
-
-                __m256 new_re = _mm256_sub_ps(z_re2, z_im2);
-                __m256 new_im = _mm256_mul_ps(_mm256_mul_ps(z_re, z_im), _mm256_set1_ps(2.f));
-                z_re = _mm256_add_ps(c_re, new_re);
-                z_im = _mm256_add_ps(c_im, new_im);
-                __m256i mask_int = _mm256_castps_si256(mask);
-                iter = _mm256_add_epi32(iter, _mm256_and_si256(mask_int, _mm256_set1_epi32(1)));
+                g_output[row * g_width + col] = 256;
+                continue;
             }
-            int index = row * g_width + i;
-            int iter_vals[8];
-            _mm256_storeu_si256((__m256i *)iter_vals, iter);
 
-            int remaining = (8 > g_width - i) ? (g_width - i) : 8;
-            for (int k = 0; k < remaining; ++k)
-                g_output[index + k] = iter_vals[k];
+            // Check if in period-2 bulb (main disk)
+            if ((x + 1.0f) * (x + 1.0f) + y * y <= 0.0625f)
+            {
+                g_output[row * g_width + col] = 256;
+                continue;
+            }
+
+            float z_re = x, z_im = y;
+            int iter = 0;
+            while (z_re * z_re + z_im * z_im <= 4.0f && iter < 256)
+            {
+                float new_re = z_re * z_re - z_im * z_im + x;
+                float new_im = 2.0f * z_re * z_im + y;
+                z_re = new_re;
+                z_im = new_im;
+                ++iter;
+            }
+            g_output[row * g_width + col] = iter;
         }
-    } 
+    }
     // double end_time = CycleTimer::current_seconds();
     // printf("Thread %d elapsed time: %lf seconds\n", threadId, end_time - start_time);
 }
