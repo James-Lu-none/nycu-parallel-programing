@@ -10,7 +10,7 @@ struct MonteCarloArgs
 {
     uint64_t chunk;
     uint64_t hits;
-    uint8_t t_id;
+    int t_id;
 };
 
 static void monte_carlo_thread(MonteCarloArgs *args)
