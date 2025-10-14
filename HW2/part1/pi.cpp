@@ -10,13 +10,13 @@ struct MonteCarloArgs
 {
     uint64_t chunk;
     uint64_t hits;
+    uint8_t t_id;
 };
 
 static void monte_carlo_thread(MonteCarloArgs *args)
 {
     xoshiro256_state rng;
-
-    rng.seed((uint64_t)random_device{}() | (uint64_t)random_device{}() << 32);
+    rng.seed(args->t_id);
 
     uint64_t local_hits = 0;
     uint64_t chunk = args->chunk;
@@ -39,30 +39,6 @@ static void monte_carlo_thread(MonteCarloArgs *args)
         __m256d sum_lo = _mm256_add_pd(_mm256_mul_pd(x_lo, x_lo), _mm256_mul_pd(y_lo, y_lo));
         __m256d mask_lo = _mm256_cmp_pd(sum_lo, one, _CMP_LE_OS);
         local_hits += _mm_popcnt_u32(_mm256_movemask_pd(mask_lo));
-    }
-
-    args->hits = local_hits;
-}
-
-static void monte_carlo_threadd(MonteCarloArgs *args)
-{
-    xoshiro256d_state rng;
-
-    rng.seed((uint64_t)random_device{}() | (uint64_t)random_device{}() << 32);
-
-    uint64_t local_hits = 0;
-    uint64_t chunk = args->chunk;
-
-    __m256d one = _mm256_set1_pd(1.0);
-
-    for (uint64_t i = 0; i < chunk / 4; i++)
-    {
-        __m256d x = rng.randd();
-        __m256d y = rng.randd();
-
-        __m256d sum = _mm256_add_pd(_mm256_mul_pd(x, x), _mm256_mul_pd(y, y));
-        __m256d mask = _mm256_cmp_pd(sum, one, _CMP_LE_OS);
-        local_hits += _mm_popcnt_u32(_mm256_movemask_pd(mask));
     }
 
     args->hits = local_hits;
@@ -108,7 +84,7 @@ int main(int argc, char **argv)
 
     for (uint8_t t = 0; t < num_threads; ++t)
     {
-        threadArgs[t] = {chunk, 0};
+        threadArgs[t] = {chunk, 0, t+1};
         threads[t] = thread(monte_carlo_thread, &threadArgs[t]);
     }
 
