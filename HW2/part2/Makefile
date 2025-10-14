@@ -3,7 +3,7 @@ OBJDIR = objs
 COMMONDIR = ./common
 
 CXX = g++ -m64
-CXXFLAGS = -I$(COMMONDIR) -I$(OBJDIR) -O3 -std=c++17 -Wall
+CXXFLAGS = -I$(COMMONDIR) -I$(OBJDIR) -mavx2 -O3 -std=c++17 -Wall
 LDLIBS = -lm -lpthread
 
 PPM_CXX = $(COMMONDIR)/ppm.cpp
