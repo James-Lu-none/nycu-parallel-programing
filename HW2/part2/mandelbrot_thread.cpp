@@ -24,7 +24,7 @@ void worker_thread_start(void *args)
         {
             float x = g_x0 + col * dx;
 
-            // Check if in main cardioid
+            // check if c=x+yi is in the main cardioid:
             float q = (x - 0.25f) * (x - 0.25f) + y * y;
             if (q * (q + (x - 0.25f)) <= 0.25f * y * y)
             {
@@ -32,7 +32,7 @@ void worker_thread_start(void *args)
                 continue;
             }
 
-            // Check if in period-2 bulb (main disk)
+            // check if c=x+yi is in the period-2 bulb (main disk)
             if ((x + 1.0f) * (x + 1.0f) + y * y <= 0.0625f)
             {
                 g_output[row * g_width + col] = 256;
