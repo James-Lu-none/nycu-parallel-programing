@@ -13,10 +13,10 @@ struct MonteCarloArgs
     int t_id;
 };
 
-static void monte_carlo_thread(MonteCarloArgs *args)
+void monte_carlo_thread(MonteCarloArgs *args)
 {
     xorshift64_state rng;
-    rng.seed(args->t_id);
+    rng.seed(args->t_id+1);
 
     uint64_t local_hits = 0;
     uint64_t chunk = args->chunk;
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 
     for (uint8_t t = 0; t < num_threads; ++t)
     {
-        threadArgs[t] = {chunk, 0, t+1};
+        threadArgs[t] = {chunk, 0, t};
         threads[t] = thread(monte_carlo_thread, &threadArgs[t]);
     }
 
