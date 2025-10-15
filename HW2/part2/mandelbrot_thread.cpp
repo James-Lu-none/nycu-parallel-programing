@@ -1,6 +1,7 @@
 #include "cycle_timer.h"
 #include <thread>
 #include <vector>
+#include <immintrin.h>
 
 float g_x0, g_y0, dx, dy;
 int g_width, g_height, g_num_threads;
@@ -17,39 +18,78 @@ void worker_thread_start(void *args)
 
     long threadId = (long) args;
     // double start_time = CycleTimer::current_seconds();
+    
+    __m128 _1 = _mm_set1_ps(1.f);
+    __m128 _2 = _mm_set1_ps(2.f);
+    __m128 _4 = _mm_set1_ps(4.f);
+    __m128 _025 = _mm_set1_ps(0.25f);
+    __m128 _00625 = _mm_set1_ps(0.0625f);
+    
     for (int row = threadId; row < g_height; row += g_num_threads)
     {
-        float y = g_y0 + row * dy;
-        for (int col = 0; col < g_width; ++col)
+        __m128 y_vec = _mm_set1_ps(g_y0 + row * dy);
+
+        for (int i = 0; i < g_width; i += 4)
         {
-            float x = g_x0 + col * dx;
+            float x_vals[4];
+            for (int k = 0; k < 4; ++k)
+                x_vals[k] = g_x0 + (i + k) * dx;
+            __m128 x_vec = _mm_loadu_ps(x_vals);
 
-            // check if c=x+yi is in the main cardioid:
-            float q = (x - 0.25f) * (x - 0.25f) + y * y;
-            if (q * (q + (x - 0.25f)) <= 0.25f * y * y)
-            {
-                g_output[row * g_width + col] = 256;
-                continue;
+            // check if c=x+yi is in the main cardioid: q*(q+(x-0.25)) <= 0.25*y^2, q=(x-0.25f)^2+y^2
+            __m128 x025 = _mm_sub_ps(x_vec, _025);
+            __m128 y2 = _mm_mul_ps(y_vec, y_vec);
+            __m128 q = _mm_add_ps(_mm_mul_ps(x025, x025), y2);
+            __m128 left = _mm_mul_ps(q, _mm_add_ps(q, x025));
+            __m128 right = _mm_mul_ps(_025, y2);
+            __m128 mask_cardioid = _mm_cmple_ps(left, right);
+
+            // check if c=x+yi is in the period-2 bulb (main disk): (x+1)^2+y^2 <= 0.0625
+            __m128 xa1 = _mm_add_ps(x_vec, _1);
+            __m128 mask_disk = _mm_cmple_ps(_mm_add_ps(_mm_mul_ps(xa1, xa1), y2), _00625);
+
+            __m128 mask_inside = _mm_or_ps(mask_cardioid, mask_disk);
+            int inside_mask = _mm_movemask_ps(mask_inside);
+
+            __m128i iter = _mm_setzero_si128();
+
+            if (inside_mask == 4){
+                iter = _mm_set1_epi32(256);
+            }
+            else {
+                __m128 z_re = x_vec, c_re = x_vec;
+                __m128 z_im = y_vec, c_im = y_vec;
+                for (int n = 0; n < 256; ++n)
+                {
+                    __m128 z_re2 = _mm_mul_ps(z_re, z_re);
+                    __m128 z_im2 = _mm_mul_ps(z_im, z_im);
+                    __m128 mag2 = _mm_add_ps(z_re2, z_im2);
+
+                    __m128 mask = _mm_cmple_ps(mag2, _4);
+                    if (_mm_movemask_ps(mask) == 0)
+                        break;
+
+                    __m128 new_re = _mm_sub_ps(z_re2, z_im2);
+                    __m128 new_im = _mm_mul_ps(_mm_mul_ps(z_re, z_im), _2);
+
+                    z_re = _mm_add_ps(c_re, new_re);
+                    z_im = _mm_add_ps(c_im, new_im);
+
+                    __m128i mask_i = _mm_castps_si128(mask);
+                    iter = _mm_add_epi32(iter, _mm_and_si128(mask_i, _mm_set1_epi32(1)));
+                }
             }
 
-            // check if c=x+yi is in the period-2 bulb (main disk)
-            if ((x + 1.0f) * (x + 1.0f) + y * y <= 0.0625f)
-            {
-                g_output[row * g_width + col] = 256;
-                continue;
-            }
+            int iter_vals[4];
+            _mm_storeu_si128((__m128i *)iter_vals, iter);
 
-            float z_re = x, z_im = y;
-            int iter = 0;
-            while (z_re * z_re + z_im * z_im <= 4.0f && iter < 256)
+            for (int k = 0; k < 4; ++k)
             {
-                float new_re = z_re * z_re - z_im * z_im + x;
-                float new_im = 2.0f * z_re * z_im + y;
-                z_re = new_re;
-                z_im = new_im;
-                ++iter;
+                if (inside_mask & (1 << k))
+                    g_output[row * g_width + i + k] = 256;
+                else
+                    g_output[row * g_width + i + k] = iter_vals[k];
             }
-            g_output[row * g_width + col] = iter;
         }
     }
     // double end_time = CycleTimer::current_seconds();
