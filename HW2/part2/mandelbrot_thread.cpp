@@ -53,6 +53,7 @@ void worker_thread_start(void *args)
 
             __m128i iter = _mm_setzero_si128();
 
+            // printf("row %d, col %d, inside_mask %d\n", row, i, inside_mask);
             if (inside_mask == 4){
                 iter = _mm_set1_epi32(256);
             }
@@ -89,54 +90,6 @@ void worker_thread_start(void *args)
                     g_output[row * g_width + i + k] = 256;
                 else
                     g_output[row * g_width + i + k] = iter_vals[k];
-            }
-        }
-    }
-    // double end_time = CycleTimer::current_seconds();
-    // printf("Thread %d elapsed time: %lf seconds\n", threadId, end_time - start_time);
-}
-
-void worker_thread_start_vec(void *args)
-{
-    // printf("Hello world from thread %d\n", args->threadId);
-
-    long threadId = (long)args;
-    // double start_time = CycleTimer::current_seconds();
-    for (int row = threadId; row < g_height; row += g_num_threads)
-    {
-        float *__restrict z_re
-            = (float *)__builtin_assume_aligned(malloc(g_width * sizeof(float)), 32);
-        float *__restrict z_im
-            = (float *)__builtin_assume_aligned(malloc(g_width * sizeof(float)), 32);
-        float *__restrict z_re_sq
-            = (float *)__builtin_assume_aligned(malloc(g_width * sizeof(float)), 32);
-        float *__restrict z_im_sq
-            = (float *)__builtin_assume_aligned(malloc(g_width * sizeof(float)), 32);
-        float y = g_y0 + row * dy;
-        for (int col = 0; col < g_width; ++col)
-        {
-            z_re[col] = g_x0 + col * dx;
-            z_im[col] = y;
-        }
-
-        for (int i = 0; i < 256; ++i)
-        {
-            for (int col = 0; col < g_width; ++col)
-            {
-                z_re_sq[col] = z_re[col] * z_re[col];
-                z_im_sq[col] = z_im[col] * z_im[col];
-
-                float new_re = z_re_sq[col] - z_im_sq[col] + (g_x0 + col * dx);
-                float new_im = 2.0f * z_re[col] * z_im[col] + y;
-                z_re[col] = new_re;
-                z_im[col] = new_im;
-            }
-            for (int col = 0; col < g_width; ++col)
-            {
-                if ((z_re_sq[col] + z_im_sq[col] <= 4.0f) && (g_output[row * g_width + col] == i))
-                {
-                    g_output[row * g_width + col]++;
-                }
             }
         }
     }
