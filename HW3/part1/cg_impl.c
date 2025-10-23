@@ -290,6 +290,7 @@ void sparse(double a[],
     //---------------------------------------------------------------------
     // ...count the number of triples in each row
     //---------------------------------------------------------------------
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < nrows + 1; j++)
     {
         rowstr[j] = 0;
@@ -325,6 +326,7 @@ void sparse(double a[],
     //---------------------------------------------------------------------
     // ... preload data pages
     //---------------------------------------------------------------------
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < nrows; j++)
     {
         for (int k = rowstr[j]; k < rowstr[j + 1]; k++)
@@ -554,6 +556,7 @@ void init(double *zeta)
     //      Shift the col index vals from actual (firstcol --> lastcol )
     //      to local, i.e., (0 --> lastcol-firstcol)
     //---------------------------------------------------------------------
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < lastrow - firstrow + 1; j++)
     {
         for (int k = rowstr[j]; k < rowstr[j + 1]; k++)
@@ -565,10 +568,13 @@ void init(double *zeta)
     //---------------------------------------------------------------------
     // set starting vector to (1, 1, .... 1)
     //---------------------------------------------------------------------
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < NA + 1; i++)
     {
         x[i] = 1.0;
     }
+
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < lastcol - firstcol + 1; j++)
     {
         q[j] = 0.0;
@@ -593,6 +599,8 @@ void iterate(double *zeta, const int *it)
     //---------------------------------------------------------------------
     norm_temp1 = 0.0;
     norm_temp2 = 0.0;
+
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < lastcol - firstcol + 1; j++)
     {
         norm_temp1 = norm_temp1 + x[j] * z[j];
@@ -609,6 +617,7 @@ void iterate(double *zeta, const int *it)
     //---------------------------------------------------------------------
     // Normalize z to obtain x
     //---------------------------------------------------------------------
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < lastcol - firstcol + 1; j++)
     {
         x[j] = norm_temp2 * z[j];
