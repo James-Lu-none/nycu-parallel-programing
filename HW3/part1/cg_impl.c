@@ -24,11 +24,12 @@ void conj_grad(const int colidx[],
     double d, sum, rho, rho0, alpha, beta;
 
     rho = 0.0;
-
+    const int naa_plus1 = naa + 1;
     //---------------------------------------------------------------------
     // Initialize the CG algorithm:
     //---------------------------------------------------------------------
-    for (int j = 0; j < naa + 1; j++)
+    #pragma omp parallel for schedule(static)
+    for (int j = 0; j < naa_plus1; j++)
     {
         q[j] = 0.0;
         z[j] = 0.0;
