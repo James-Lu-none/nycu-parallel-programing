@@ -2,8 +2,8 @@ DATASIZE = MEDIUMN
 COMMON = common
 CC = gcc
 LDLIBS = -lm
-LDFLAGS = -Wl,--allow-multiple-definition -fopenmp
-CFLAGS = -g -O3 -mcmodel=medium -fopenmp -I$(COMMON) -D$(DATASIZE)
+LDFLAGS = -pg -Wl,--allow-multiple-definition -fopenmp
+CFLAGS = -pg -g -O3 -mcmodel=medium -fopenmp -I$(COMMON) -D$(DATASIZE)
 
 default: cg grade
 	mv grade cg_grader
