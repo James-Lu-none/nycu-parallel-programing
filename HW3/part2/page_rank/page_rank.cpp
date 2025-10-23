@@ -5,7 +5,7 @@
 #include <omp.h>
 
 #include "../common/graph.h"
-
+#include <vector>
 // page_rank --
 //
 // g:           graph to process (see common/graph.h)
@@ -88,10 +88,14 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
         double base_score = ((1.0 - damping) + damping * dangling_sum) / nnodes;
         #pragma omp parallel for
         for (int vi = 0; vi < nnodes; ++vi)
+        {
             score_new[vi] += base_score;
-        
+        }
+
         global_diff = 0.0;
-        for (int vi = 0; vi < nnodes; ++vi){
+        #pragma omp parallel for reduction(+ : global_diff)
+        for (int vi = 0; vi < nnodes; ++vi)
+        {
             global_diff += fabs(score_new[vi] - score_old[vi]);
             score_old[vi] = score_new[vi];
         }
