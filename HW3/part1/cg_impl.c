@@ -41,9 +41,12 @@ void conj_grad(const int colidx[],
     // rho = r.r
     // Now, obtain the norm of r: First, sum squares of r elements locally...
     //---------------------------------------------------------------------
-    for (int j = 0; j < lastcol - firstcol + 1; j++)
+    const int range = lastcol - firstcol + 1;
+    const int row_range = lastrow - firstrow + 1;
+    #pragma omp parallel for reduction(+:rho) schedule(static)
+    for (int j = 0; j < range; j++)
     {
-        rho = rho + r[j] * r[j];
+        rho += r[j] * r[j];
     }
 
     //---------------------------------------------------------------------
