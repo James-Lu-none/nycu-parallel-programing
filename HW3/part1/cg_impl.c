@@ -93,9 +93,10 @@ void conj_grad(const int colidx[],
         // Obtain p.q
         //---------------------------------------------------------------------
         d = 0.0;
-        for (int j = 0; j < lastcol - firstcol + 1; j++)
+        #pragma omp parallel for reduction(+:d) schedule(static)
+        for (int j = 0; j < range; j++)
         {
-            d = d + p[j] * q[j];
+            d += p[j] * q[j];
         }
 
         //---------------------------------------------------------------------
@@ -111,21 +112,15 @@ void conj_grad(const int colidx[],
         //---------------------------------------------------------------------
         // Obtain z = z + alpha*p
         // and    r = r - alpha*q
+        // and    rho = r.r
         //---------------------------------------------------------------------
         rho = 0.0;
-        for (int j = 0; j < lastcol - firstcol + 1; j++)
+        #pragma omp parallel for reduction(+ : rho) schedule(static)
+        for (int j = 0; j < range; j++)
         {
-            z[j] = z[j] + alpha * p[j];
-            r[j] = r[j] - alpha * q[j];
-        }
-
-        //---------------------------------------------------------------------
-        // rho = r.r
-        // Now, obtain the norm of r: First, sum squares of r elements locally...
-        //---------------------------------------------------------------------
-        for (int j = 0; j < lastcol - firstcol + 1; j++)
-        {
-            rho = rho + r[j] * r[j];
+            z[j] += alpha * p[j];
+            r[j] -= alpha * q[j];
+            rho += r[j] * r[j];
         }
 
         //---------------------------------------------------------------------
@@ -136,7 +131,8 @@ void conj_grad(const int colidx[],
         //---------------------------------------------------------------------
         // p = r + beta*p
         //---------------------------------------------------------------------
-        for (int j = 0; j < lastcol - firstcol + 1; j++)
+        #pragma omp parallel for schedule(static)
+        for (int j = 0; j < range; j++)
         {
             p[j] = r[j] + beta * p[j];
         }
