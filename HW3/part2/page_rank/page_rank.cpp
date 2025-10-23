@@ -68,8 +68,9 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
     {
         for (int i = 0; i < nnodes; ++i)
             score_new[i] = 0.0;
-
+        
         double dangling_sum = 0.0;
+        #pragma omp parallel for reduction(+:dangling_sum)
         for (int v = 0; v < nnodes; ++v)
             if (outgoing_size(g, v) == 0)
                 dangling_sum += score_old[v];
@@ -85,7 +86,7 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
         }
 
         double base_score = ((1.0 - damping) + damping * dangling_sum) / nnodes;
-        
+        #pragma omp parallel for
         for (int vi = 0; vi < nnodes; ++vi)
             score_new[vi] += base_score;
         
