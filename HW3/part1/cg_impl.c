@@ -143,24 +143,33 @@ void conj_grad(const int colidx[],
     // First, form A.z
     // The partition submatrix-vector multiply
     //---------------------------------------------------------------------
-    sum = 0.0;
-    for (int j = 0; j < lastrow - firstrow + 1; j++)
+    #pragma omp parallel for private(d) schedule(dynamic, 64)
+    for (int j = 0; j < row_range; j++)
     {
         d = 0.0;
-        for (int k = rowstr[j]; k < rowstr[j + 1]; k++)
+        const int row_start = rowstr[j];
+        const int row_end = rowstr[j + 1];
+
+        // Unrolled sparse matrix-vector multiply
+        int k = row_start;
+        for (; k + 3 < row_end; k += 4)
         {
-            d = d + a[k] * z[colidx[k]];
+            d += a[k] * z[colidx[k]] + a[k + 1] * z[colidx[k + 1]] + a[k + 2] * z[colidx[k + 2]]
+                 + a[k + 3] * z[colidx[k + 3]];
+        }
+        for (; k < row_end; k++)
+        {
+            d += a[k] * z[colidx[k]];
         }
         r[j] = d;
     }
 
-    //---------------------------------------------------------------------
-    // At this point, r contains A.z
-    //---------------------------------------------------------------------
-    for (int j = 0; j < lastcol - firstcol + 1; j++)
+    sum = 0.0;
+    #pragma omp parallel for reduction(+ : sum) schedule(static)
+    for (int j = 0; j < range; j++)
     {
         d = x[j] - r[j];
-        sum = sum + d * d;
+        sum += d * d;
     }
 
     *rnorm = sqrt(sum);
