@@ -53,5 +53,52 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
          converged = (global_diff < convergence)
        }
 
+
      */
+    double *score_old = solution;
+    double *score_new = new double[nnodes];
+    double global_diff = 1;
+    while (global_diff > convergence)
+    {
+        for (int vi = 0; vi < nnodes; ++vi)
+        {
+            score_new[vi] = 0.0;
+            for (int vj = 0; vj < nnodes; ++vj)
+            {
+                const Vertex *start = outgoing_begin(g, vj);
+                const Vertex *end = outgoing_end(g, vj);
+                if (start == end)
+                {
+                    continue;
+                }
+                for (const Vertex *i = start; i != end; ++i)
+                {
+                    if (*i == vi)
+                    {
+                        score_new[vi] += score_old[vj] / outgoing_size(g, vj);
+                        break;
+                    }
+                }
+            }
+
+            score_new[vi] = (damping * score_new[vi]) + (1.0 - damping) / nnodes;
+
+            for (int v = 0; v < nnodes; ++v)
+            {
+                const Vertex *start = outgoing_begin(g, v);
+                const Vertex *end = outgoing_end(g, v);
+                if (start == end)
+                {
+                    score_new[vi] += damping * score_old[v] / nnodes;
+                }
+            }
+        }
+        global_diff = 0.0;
+        for (int vi = 0; vi < nnodes; ++vi)
+        {
+            global_diff += fabs(score_new[vi] - score_old[vi]);
+            score_old[vi] = score_new[vi];
+        }
+    }
+    delete[] score_new;
 }
