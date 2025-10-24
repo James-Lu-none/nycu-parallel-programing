@@ -108,6 +108,36 @@ void bfs_top_down(Graph graph, solution *sol)
     vertex_set_destroy(&list2);
 }
 
+// bottom up BFS:
+
+void bottom_up_step(Graph g, VertexSet *new_frontier, int *distances, int curr_depth)
+{
+#pragma omp parallel for schedule(dynamic, 1024)
+    for (int node = 0; node < g->num_nodes; node++)
+    {
+        if (distances[node] != NOT_VISITED_MARKER)
+            continue;
+
+        int start_edge = g->incoming_starts[node];
+        int end_edge = (node == g->num_nodes - 1) ? g->num_edges : g->incoming_starts[node + 1];
+
+        for (int neighbor = start_edge; neighbor < end_edge; neighbor++)
+        {
+            int incoming = g->incoming_edges[neighbor];
+
+            if (distances[incoming] == curr_depth)
+            {
+                distances[node] = curr_depth + 1;
+                int index;
+#pragma omp atomic capture
+                index = new_frontier->count++;
+                new_frontier->vertices[index] = node;
+                break; // stop after first parent found
+            }
+        }
+    }
+}
+
 void bfs_bottom_up(Graph graph, solution *sol)
 {
     // For PP students:
@@ -121,6 +151,35 @@ void bfs_bottom_up(Graph graph, solution *sol)
     // As was done in the top-down case, you may wish to organize your
     // code by creating subroutine bottom_up_step() that is called in
     // each step of the BFS process.
+    
+    VertexSet list1;
+    VertexSet list2;
+    vertex_set_init(&list1, graph->num_nodes);
+    vertex_set_init(&list2, graph->num_nodes);
+
+    VertexSet *frontier = &list1;
+    VertexSet *new_frontier = &list2;
+
+    for (int i = 0; i < graph->num_nodes; i++)
+        sol->distances[i] = NOT_VISITED_MARKER;
+
+    frontier->vertices[frontier->count++] = ROOT_NODE_ID;
+    sol->distances[ROOT_NODE_ID] = 0;
+
+    int depth = 0;
+
+    while (frontier->count != 0)
+    {
+        vertex_set_clear(new_frontier);
+        bottom_up_step(graph, new_frontier, sol->distances, depth);
+        depth++;
+        VertexSet *tmp = frontier;
+        frontier = new_frontier;
+        new_frontier = tmp;
+    }
+
+    vertex_set_destroy(&list1);
+    vertex_set_destroy(&list2);
 }
 
 void bfs_hybrid(Graph graph, solution *sol)
