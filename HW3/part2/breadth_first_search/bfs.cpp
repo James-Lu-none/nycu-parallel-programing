@@ -35,24 +35,28 @@ void vertex_set_destroy(VertexSet *list)
 // new_frontier.
 void top_down_step(Graph g, VertexSet *frontier, VertexSet *new_frontier, int *distances)
 {
+    #pragma omp parallel for schedule(dynamic, 64)
     for (int i = 0; i < frontier->count; i++)
     {
-
         int node = frontier->vertices[i];
 
         int start_edge = g->outgoing_starts[node];
         int end_edge = (node == g->num_nodes - 1) ? g->num_edges : g->outgoing_starts[node + 1];
 
-        // attempt to add all neighbors to the new frontier
         for (int neighbor = start_edge; neighbor < end_edge; neighbor++)
         {
             int outgoing = g->outgoing_edges[neighbor];
 
             if (distances[outgoing] == NOT_VISITED_MARKER)
             {
-                distances[outgoing] = distances[node] + 1;
-                int index = new_frontier->count++;
-                new_frontier->vertices[index] = outgoing;
+                if (__sync_bool_compare_and_swap(&distances[outgoing], NOT_VISITED_MARKER,
+                                                 distances[node] + 1))
+                {
+                    int index;
+                    #pragma omp atomic capture
+                    index = new_frontier->count++;
+                    new_frontier->vertices[index] = outgoing;
+                }
             }
         }
     }
@@ -203,14 +207,22 @@ void bfs_hybrid(Graph graph, solution *sol)
     sol->distances[ROOT_NODE_ID] = 0;
 
     int depth = 0;
-
+    bool use_top_down = true;
     while (frontier->count != 0)
     {
         vertex_set_clear(new_frontier);
 
         double frontier_density = (double)frontier->count / graph->num_nodes;
 
-        if (frontier_density < 0.1)
+        if (frontier_density > 0.03f){
+            use_top_down = false;
+        }
+        else if (frontier_density < 0.005f)
+        {
+            use_top_down = true;
+        }
+
+        if (use_top_down)
         {
             // sparse frontier → top-down
             top_down_step(graph, frontier, new_frontier, sol->distances);
