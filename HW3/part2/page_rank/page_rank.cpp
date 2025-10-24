@@ -55,10 +55,9 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
 
 
      */
-    
+
     double *score_old = solution;
     double *score_new = new double[nnodes];
-
     double *outgoing_sizes = new double[nnodes];
     const Vertex **outgoing_begins = new const Vertex *[nnodes];
     const Vertex **outgoing_ends = new const Vertex *[nnodes];
@@ -94,7 +93,7 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
         }
 
         global_diff = 0.0;
-        #pragma omp parallel for reduction(+ : global_diff)
+        #pragma omp parallel for reduction(+:global_diff)
         for (int vi = 0; vi < nnodes; ++vi)
         {
             global_diff += fabs(score_new[vi] - score_old[vi]);
@@ -102,4 +101,7 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
         }
     }
     delete[] score_new;
+    delete[] outgoing_sizes;
+    delete[] outgoing_begins;
+    delete[] outgoing_ends;
 }
