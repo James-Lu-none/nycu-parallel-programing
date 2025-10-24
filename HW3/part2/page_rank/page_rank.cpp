@@ -55,41 +55,42 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
 
 
      */
-    /*
-        Another basic page rank pseudocode that is equivalent but more efficient:
-        1. For each vj, distribute score_old[vj]/outdegree(vj) to its outgoing neighbors
-        2. After distribution, score_new[*i] += damping * contrib; base_score = (1-d)/N + d*dangling/N
-        3. Precompute total dangling mass, then apply uniformly
-     */
+    
     double *score_old = solution;
     double *score_new = new double[nnodes];
+
+    double *outgoing_sizes = new double[nnodes];
+    const Vertex **outgoing_begins = new const Vertex *[nnodes];
+    const Vertex **outgoing_ends = new const Vertex *[nnodes];
+
+    #pragma omp parallel for
+    for (int v = 0; v < nnodes; ++v)
+    {
+        outgoing_sizes[v] = outgoing_size(g, v);
+        outgoing_begins[v] = outgoing_begin(g, v);
+        outgoing_ends[v] = outgoing_end(g, v);
+    }
+
     double global_diff = 1;
     while (global_diff > convergence)
-    {
-        for (int i = 0; i < nnodes; ++i)
-            score_new[i] = 0.0;
-        
+    {        
         double dangling_sum = 0.0;
         #pragma omp parallel for reduction(+:dangling_sum)
-        for (int v = 0; v < nnodes; ++v)
-            if (outgoing_size(g, v) == 0)
+        for (int v = 0; v < nnodes; ++v){
+            if (outgoing_sizes[v] == 0){
                 dangling_sum += score_old[v];
-
-        for (int vj = 0; vj < nnodes; ++vj)
-        {
-            int out_size = outgoing_size(g, vj);
-            if (out_size == 0)
-                continue;
-            double contrib = score_old[vj] / out_size;
-            for (const Vertex *i = outgoing_begin(g, vj); i != outgoing_end(g, vj); ++i)
-                score_new[*i] += damping * contrib;
+            }
+            score_new[v] = ((1.0 - damping) + damping * dangling_sum) / nnodes;
         }
 
-        double base_score = ((1.0 - damping) + damping * dangling_sum) / nnodes;
         #pragma omp parallel for
-        for (int vi = 0; vi < nnodes; ++vi)
+        for (int vj = 0; vj < nnodes; ++vj)
         {
-            score_new[vi] += base_score;
+            if (outgoing_sizes[vj] == 0)
+                continue;
+            double contrib = score_old[vj] / outgoing_sizes[vj];
+            for (const Vertex *i = outgoing_begins[vj]; i != outgoing_ends[vj]; ++i)
+                score_new[*i] += damping * contrib;
         }
 
         global_diff = 0.0;
