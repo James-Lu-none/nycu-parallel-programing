@@ -188,4 +188,46 @@ void bfs_hybrid(Graph graph, solution *sol)
     //
     // You will need to implement the "hybrid" BFS here as
     // described in the handout.
+    VertexSet list1;
+    VertexSet list2;
+    vertex_set_init(&list1, graph->num_nodes);
+    vertex_set_init(&list2, graph->num_nodes);
+
+    VertexSet *frontier = &list1;
+    VertexSet *new_frontier = &list2;
+
+    for (int i = 0; i < graph->num_nodes; i++)
+        sol->distances[i] = NOT_VISITED_MARKER;
+
+    frontier->vertices[frontier->count++] = ROOT_NODE_ID;
+    sol->distances[ROOT_NODE_ID] = 0;
+
+    int depth = 0;
+
+    while (frontier->count != 0)
+    {
+        vertex_set_clear(new_frontier);
+
+        double frontier_density = (double)frontier->count / graph->num_nodes;
+
+        if (frontier_density < 0.1)
+        {
+            // sparse frontier → top-down
+            top_down_step(graph, frontier, new_frontier, sol->distances);
+        }
+        else
+        {
+            // dense frontier → bottom-up
+            bottom_up_step(graph, new_frontier, sol->distances, depth);
+        }
+
+        depth++;
+
+        VertexSet *tmp = frontier;
+        frontier = new_frontier;
+        new_frontier = tmp;
+    }
+
+    vertex_set_destroy(&list1);
+    vertex_set_destroy(&list2);
 }
