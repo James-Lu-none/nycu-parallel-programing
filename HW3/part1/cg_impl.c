@@ -165,7 +165,7 @@ void conj_grad(const int colidx[],
     }
 
     sum = 0.0;
-    #pragma omp parallel for reduction(+ : sum) schedule(static)
+    #pragma omp parallel for reduction(+ : sum) private(d) schedule(static)
     for (int j = 0; j < range; j++)
     {
         d = x[j] - r[j];
@@ -600,11 +600,11 @@ void iterate(double *zeta, const int *it)
     norm_temp1 = 0.0;
     norm_temp2 = 0.0;
 
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for reduction(+ : norm_temp1, norm_temp2) schedule(static)
     for (int j = 0; j < lastcol - firstcol + 1; j++)
     {
-        norm_temp1 = norm_temp1 + x[j] * z[j];
-        norm_temp2 = norm_temp2 + z[j] * z[j];
+        norm_temp1 += x[j] * z[j];
+        norm_temp2 += z[j] * z[j];
     }
 
     norm_temp2 = 1.0 / sqrt(norm_temp2);
