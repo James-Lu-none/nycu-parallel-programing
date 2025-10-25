@@ -10,6 +10,7 @@
 #include <stdio.h>
 #endif // VERBOSE
 
+#define BUFFER_SIZE 1024
 constexpr int ROOT_NODE_ID = 0;
 constexpr int NOT_VISITED_MARKER = -1;
 
@@ -35,28 +36,52 @@ void vertex_set_destroy(VertexSet *list)
 // new_frontier.
 void top_down_step(Graph g, VertexSet *frontier, VertexSet *new_frontier, int *distances)
 {
-    #pragma omp parallel for schedule(dynamic, 64)
-    for (int i = 0; i < frontier->count; i++)
+    #pragma omp parallel
     {
-        int node = frontier->vertices[i];
+        int local_buffer[BUFFER_SIZE];
+        int local_count = 0;
 
-        int start_edge = g->outgoing_starts[node];
-        int end_edge = (node == g->num_nodes - 1) ? g->num_edges : g->outgoing_starts[node + 1];
-
-        for (int neighbor = start_edge; neighbor < end_edge; neighbor++)
+        #pragma omp for schedule(dynamic, 64)
+        for (int i = 0; i < frontier->count; i++)
         {
-            int outgoing = g->outgoing_edges[neighbor];
+            int node = frontier->vertices[i];
 
-            if (distances[outgoing] == NOT_VISITED_MARKER)
+            int start_edge = g->outgoing_starts[node];
+            int end_edge = (node == g->num_nodes - 1) ? g->num_edges : g->outgoing_starts[node + 1];
+
+            for (int neighbor = start_edge; neighbor < end_edge; neighbor++)
             {
-                if (__sync_bool_compare_and_swap(&distances[outgoing], NOT_VISITED_MARKER,
-                                                 distances[node] + 1))
+                int outgoing = g->outgoing_edges[neighbor];
+
+                if (distances[outgoing] == NOT_VISITED_MARKER)
                 {
-                    int index;
-                    #pragma omp atomic capture
-                    index = new_frontier->count++;
-                    new_frontier->vertices[index] = outgoing;
+                    if (__sync_bool_compare_and_swap(&distances[outgoing], NOT_VISITED_MARKER,
+                                                     distances[node] + 1))
+                    {
+                        local_buffer[local_count++] = outgoing;
+
+                        // Flush when buffer is full
+                        if (local_count == BUFFER_SIZE)
+                        {
+                            int base = __sync_fetch_and_add(&new_frontier->count, local_count);
+                            for (int j = 0; j < local_count; j++)
+                            {
+                                new_frontier->vertices[base + j] = local_buffer[j];
+                            }
+                            local_count = 0;
+                        }
+                    }
                 }
+            }
+        }
+
+        // Flush remaining vertices
+        if (local_count > 0)
+        {
+            int base = __sync_fetch_and_add(&new_frontier->count, local_count);
+            for (int j = 0; j < local_count; j++)
+            {
+                new_frontier->vertices[base + j] = local_buffer[j];
             }
         }
     }
@@ -112,31 +137,54 @@ void bfs_top_down(Graph graph, solution *sol)
     vertex_set_destroy(&list2);
 }
 
-// bottom up BFS:
+// bottom up BFS implementations:
 
 void bottom_up_step(Graph g, VertexSet *new_frontier, int *distances, int curr_depth)
 {
-#pragma omp parallel for schedule(dynamic, 1024)
-    for (int node = 0; node < g->num_nodes; node++)
+    #pragma omp parallel
     {
-        if (distances[node] != NOT_VISITED_MARKER)
-            continue;
+        int local_buffer[BUFFER_SIZE];
+        int local_count = 0;
 
-        int start_edge = g->incoming_starts[node];
-        int end_edge = (node == g->num_nodes - 1) ? g->num_edges : g->incoming_starts[node + 1];
-
-        for (int neighbor = start_edge; neighbor < end_edge; neighbor++)
+        #pragma omp for schedule(dynamic, 1024)
+        for (int node = 0; node < g->num_nodes; node++)
         {
-            int incoming = g->incoming_edges[neighbor];
+            if (distances[node] != NOT_VISITED_MARKER)
+                continue;
 
-            if (distances[incoming] == curr_depth)
+            int start_edge = g->incoming_starts[node];
+            int end_edge = (node == g->num_nodes - 1) ? g->num_edges : g->incoming_starts[node + 1];
+
+            for (int neighbor = start_edge; neighbor < end_edge; neighbor++)
             {
-                distances[node] = curr_depth + 1;
-                int index;
-#pragma omp atomic capture
-                index = new_frontier->count++;
-                new_frontier->vertices[index] = node;
-                break; // stop after first parent found
+                int incoming = g->incoming_edges[neighbor];
+
+                if (distances[incoming] == curr_depth)
+                {
+                    distances[node] = curr_depth + 1;
+                    local_buffer[local_count++] = node;
+
+                    // Flush when buffer is full
+                    if (local_count == BUFFER_SIZE)
+                    {
+                        int base = __sync_fetch_and_add(&new_frontier->count, local_count);
+                        for (int j = 0; j < local_count; j++)
+                        {
+                            new_frontier->vertices[base + j] = local_buffer[j];
+                        }
+                        local_count = 0;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (local_count > 0)
+        {
+            int base = __sync_fetch_and_add(&new_frontier->count, local_count);
+            for (int j = 0; j < local_count; j++)
+            {
+                new_frontier->vertices[base + j] = local_buffer[j];
             }
         }
     }
@@ -214,10 +262,10 @@ void bfs_hybrid(Graph graph, solution *sol)
 
         double frontier_density = (double)frontier->count / graph->num_nodes;
 
-        if (frontier_density > 0.03f){
+        if (frontier_density > 0.02f){
             use_top_down = false;
         }
-        else if (frontier_density < 0.005f)
+        else if (frontier_density < 0.002f)
         {
             use_top_down = true;
         }
