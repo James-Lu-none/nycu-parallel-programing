@@ -59,16 +59,17 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
     double *score_old = solution;
     double *score_new = new double[nnodes];
     double *outgoing_sizes = new double[nnodes];
-    const Vertex **incoming_begins = new const Vertex *[nnodes];
-    const Vertex **incoming_ends = new const Vertex *[nnodes];
+    // i cant use this it will ran out of memory
+    // const Vertex **incoming_begins = new const Vertex *[nnodes];
+    // const Vertex **incoming_ends = new const Vertex *[nnodes];
     double *out_contrib = new double[nnodes];
 
     #pragma omp parallel for
     for (int v = 0; v < nnodes; ++v)
     {
         outgoing_sizes[v] = outgoing_size(g, v);
-        incoming_begins[v] = incoming_begin(g, v);
-        incoming_ends[v] = incoming_end(g, v);
+        // incoming_begins[v] = incoming_begin(g, v);
+        // incoming_ends[v] = incoming_end(g, v);
     }
 
     double global_diff = 1;
@@ -91,7 +92,7 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
         for (int v = 0; v < nnodes; ++v)
         {
             double sum = 0.0;
-            for (const Vertex *u = incoming_begins[v]; u != incoming_ends[v]; ++u)
+            for (const Vertex *u = incoming_begin(g, v); u != incoming_end(g, v); ++u)
                 sum += out_contrib[*u];
 
             score_new[v] = base_score + damping * sum;
@@ -107,7 +108,7 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
     }
     delete[] score_new;
     delete[] outgoing_sizes;
-    delete[] incoming_begins;
-    delete[] incoming_ends;
+    // delete[] incoming_begins;
+    // delete[] incoming_ends;
     delete[] out_contrib;
 }
