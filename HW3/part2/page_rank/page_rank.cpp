@@ -59,15 +59,15 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
     double *score_old = solution;
     double *score_new = new double[nnodes];
     double *outgoing_sizes = new double[nnodes];
-    const Vertex **outgoing_begins = new const Vertex *[nnodes];
-    const Vertex **outgoing_ends = new const Vertex *[nnodes];
+    const Vertex **incoming_begins = new const Vertex *[nnodes];
+    const Vertex **incoming_ends = new const Vertex *[nnodes];
 
     #pragma omp parallel for
     for (int v = 0; v < nnodes; ++v)
     {
         outgoing_sizes[v] = outgoing_size(g, v);
-        outgoing_begins[v] = outgoing_begin(g, v);
-        outgoing_ends[v] = outgoing_end(g, v);
+        incoming_begins[v] = incoming_begin(g, v);
+        incoming_ends[v] = incoming_end(g, v);
     }
 
     double global_diff = 1;
@@ -79,17 +79,21 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
             if (outgoing_sizes[v] == 0){
                 dangling_sum += score_old[v];
             }
-            score_new[v] = ((1.0 - damping) + damping * dangling_sum) / nnodes;
         }
+        const double base_score = (1.0 - damping) / nnodes + damping * dangling_sum / nnodes;
 
+        double *out_contrib = new double[nnodes];
         #pragma omp parallel for
-        for (int vj = 0; vj < nnodes; ++vj)
+        for (int v = 0; v < nnodes; ++v)
+            out_contrib[v] = (outgoing_sizes[v] > 0) ? score_old[v] / outgoing_sizes[v] : 0.0;
+        #pragma omp parallel for
+        for (int v = 0; v < nnodes; ++v)
         {
-            if (outgoing_sizes[vj] == 0)
-                continue;
-            double contrib = score_old[vj] / outgoing_sizes[vj];
-            for (const Vertex *i = outgoing_begins[vj]; i != outgoing_ends[vj]; ++i)
-                score_new[*i] += damping * contrib;
+            double sum = 0.0;
+            for (const Vertex *u = incoming_begins[v]; u != incoming_ends[v]; ++u)
+                sum += out_contrib[*u];
+
+            score_new[v] = base_score + damping * sum;
         }
 
         global_diff = 0.0;
@@ -102,6 +106,6 @@ void page_rank(Graph g, double *solution, double damping, double convergence)
     }
     delete[] score_new;
     delete[] outgoing_sizes;
-    delete[] outgoing_begins;
-    delete[] outgoing_ends;
+    delete[] incoming_begins;
+    delete[] incoming_ends;
 }
