@@ -18,6 +18,17 @@ void construct_matrices(
      *
      * The matrix multiplication will be performed on a_mat_ptr and b_mat_ptr.
      */
+    int world_rank, world_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    if (world_rank != 0)
+    {
+        // Non-root ranks can't construct matrices since *a_mat, *b_mat are only available in rank 0
+        *a_mat_ptr = nullptr;
+        *b_mat_ptr = nullptr;
+        return;
+    }
     int *A = new int[n * m];
     memcpy(A, a_mat, n * m * sizeof(int));
 
