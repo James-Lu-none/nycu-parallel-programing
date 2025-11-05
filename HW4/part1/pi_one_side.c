@@ -35,8 +35,7 @@ int main(int argc, char **argv)
         }
     }
     double local_pi = 4.0 * count / local_tosses;
-
-    MPI_Win win;
+    
     double *recv_pis = NULL;
 
     if (world_rank == 0)
