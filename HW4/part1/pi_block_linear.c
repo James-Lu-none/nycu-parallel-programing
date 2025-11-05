@@ -33,12 +33,8 @@ int main(int argc, char **argv)
         }
     }
     double local_pi = 4.0 * count / local_tosses;
-    if (world_rank > 0)
-    {
-        // TODO: handle workers
-        MPI_Send(&local_pi, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-    }
-    else if (world_rank == 0)
+
+    if (world_rank == 0)
     {
         // TODO: main
         pi_result = local_pi;
@@ -48,6 +44,10 @@ int main(int argc, char **argv)
             MPI_Recv(&local_pi, 1, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             pi_result += local_pi;    
         }
+    }
+    else
+    { // TODO: handle workers
+        MPI_Send(&local_pi, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
     }
 
     if (world_rank == 0)

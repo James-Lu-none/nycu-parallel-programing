@@ -55,13 +55,13 @@ int main(int argc, char **argv)
 
     MPI_Win_fence(0, win);
 
-    if (world_rank > 0)
-    {
-        MPI_Put(&local_pi, 1, MPI_DOUBLE, 0, world_rank, 1, MPI_DOUBLE, win);
-    }
-    else if (world_rank == 0)
+    if (world_rank == 0)
     {
         recv_pis[0] = local_pi;
+    }
+    else
+    {
+        MPI_Put(&local_pi, 1, MPI_DOUBLE, 0, world_rank, 1, MPI_DOUBLE, win);
     }
 
     MPI_Win_fence(0, win);

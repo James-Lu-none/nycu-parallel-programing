@@ -34,11 +34,7 @@ int main(int argc, char **argv)
     }
     double local_pi = 4.0 * count / local_tosses;
 
-    if (world_rank > 0)
-    {
-        MPI_Send(&local_pi, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-    }
-    else
+    if (world_rank == 0)
     {
         double *recv_pis = malloc(sizeof(double) * world_size);
         MPI_Request *requests = malloc(sizeof(MPI_Request) * world_size);
@@ -65,6 +61,10 @@ int main(int argc, char **argv)
         printf("%lf\n", pi_result);
         printf("MPI running time: %lf Seconds\n", end_time - start_time);
         // ---
+    }
+    else
+    {
+        MPI_Send(&local_pi, 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
     }
 
     MPI_Finalize();
