@@ -73,6 +73,7 @@ void matrix_multiply(
     const int local_rows = rows[world_rank];
 
     int *local_BT = NULL;
+    // Allocate local_BT for non-root ranks since *bt_mat is const and cannot be used directly
     if (world_rank == 0)
     {
         local_BT = (int *)bt_mat;
@@ -85,6 +86,7 @@ void matrix_multiply(
     int *local_A = new int[local_rows * m];
     int *local_C = new int[local_rows * l];
 
+    // send A's rows and broadcast B^T to all processes since they dont have them
     MPI_Scatterv(a_mat, numbers_A, offsets_A, MPI_INT, local_A, numbers_A[world_rank], MPI_INT, 0,
                  MPI_COMM_WORLD);
     MPI_Bcast(local_BT, l * m, MPI_INT, 0, MPI_COMM_WORLD);
@@ -96,7 +98,7 @@ void matrix_multiply(
             int sum = 0;
             for (int k = 0; k < m; ++k)
             {
-                sum += local_A[i * m + k] * bt_mat[j * m + k];
+                sum += local_A[i * m + k] * local_BT[j * m + k];
             }
             local_C[i * l + j] = sum;
         }
