@@ -1,4 +1,11 @@
 #include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+#include <string.h>
+
 
 void construct_matrices(
     int n, int m, int l, const int *a_mat, const int *b_mat, int **a_mat_ptr, int **b_mat_ptr)
@@ -36,7 +43,7 @@ void matrix_multiply(
      * l elements of int. You need to make sure rank 0 receives the result.
      */
     int world_rank, world_size;
-    MPI_Comm_world_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     int base = n / world_size;
@@ -50,7 +57,7 @@ void matrix_multiply(
     int *offsets_C = (int *)malloc((size_t)world_size * sizeof(int));
 
     int offset_A_tmp = 0, offset_C_tmp = 0;
-    for (int r = 0; r < size; ++r)
+    for (int r = 0; r < world_size; ++r)
     {
         rows[r] = base + (r < rem ? 1 : 0);
 
@@ -68,7 +75,7 @@ void matrix_multiply(
     int *local_A = (int *)malloc((size_t)local_rows * (size_t)m * sizeof(int));
     int *local_C = (int *)calloc((size_t)local_rows * (size_t)l, sizeof(int));
 
-    MPI_Scatterv(a_mat, a_counts, a_displs, MPI_INT, A_local, a_counts[world_rank], MPI_INT, 0,
+    MPI_Scatterv(a_mat, numbers_A, offsets_A, MPI_INT, local_A, numbers_A[world_rank], MPI_INT, 0,
                  MPI_COMM_WORLD);
     MPI_Bcast((void *)bt_mat, l * m, MPI_INT, 0, MPI_COMM_WORLD);
 
