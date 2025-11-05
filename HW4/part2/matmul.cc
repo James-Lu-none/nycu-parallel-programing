@@ -50,11 +50,11 @@ void matrix_multiply(
     int rem = n % world_size;
 
     // numbers and offsets of A and C for each process
-    int *rows = (int *)malloc((size_t)world_size * sizeof(int));
-    int *numbers_A = (int *)malloc((size_t)world_size * sizeof(int));
-    int *offsets_A = (int *)malloc((size_t)world_size * sizeof(int));
-    int *numbers_C = (int *)malloc((size_t)world_size * sizeof(int));
-    int *offsets_C = (int *)malloc((size_t)world_size * sizeof(int));
+    int *rows = new int[world_size];
+    int *numbers_A = new int[world_size];
+    int *offsets_A = new int[world_size];
+    int *numbers_C = new int[world_size];
+    int *offsets_C = new int[world_size];
 
     int offset_A_tmp = 0, offset_C_tmp = 0;
     for (int r = 0; r < world_size; ++r)
@@ -72,8 +72,8 @@ void matrix_multiply(
 
     const int local_rows = rows[world_rank];
 
-    int *local_A = (int *)malloc((size_t)local_rows * (size_t)m * sizeof(int));
-    int *local_C = (int *)calloc((size_t)local_rows * (size_t)l, sizeof(int));
+    int *local_A = new int[local_rows * m];
+    int *local_C = new int[local_rows * l];
 
     MPI_Scatterv(a_mat, numbers_A, offsets_A, MPI_INT, local_A, numbers_A[world_rank], MPI_INT, 0,
                  MPI_COMM_WORLD);
@@ -96,18 +96,18 @@ void matrix_multiply(
     MPI_Gatherv(local_C, numbers_C[world_rank], MPI_INT, out_mat, numbers_C, offsets_C, MPI_INT, 0,
                 MPI_COMM_WORLD);
 
-    free(local_A);
-    free(local_C);
-    free(rows);
-    free(numbers_A);
-    free(offsets_A);
-    free(numbers_C);
-    free(offsets_C);
+    delete[] local_A;
+    delete[] local_C;
+    delete[] rows;
+    delete[] numbers_A;
+    delete[] offsets_A;
+    delete[] numbers_C;
+    delete[] offsets_C;
 }
 
 void destruct_matrices(int *a_mat, int *b_mat)
 {
     /* TODO */
-    free(a_mat);
-    free(b_mat);
+    delete[] a_mat;
+    delete[] b_mat;
 }
