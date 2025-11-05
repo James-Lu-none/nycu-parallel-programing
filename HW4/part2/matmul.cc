@@ -11,18 +11,96 @@ void construct_matrices(
      *
      * The matrix multiplication will be performed on a_mat_ptr and b_mat_ptr.
      */
+    int *A = (int *)malloc(n * m * sizeof(int));
+    memcpy(A, a_mat, n * m * sizeof(int));
+
+    int *BT = (int *)malloc(l * m * sizeof(int));
+    // Transpose B
+    for (int r = 0; r < m; ++r)
+    {
+        for (int c = 0; c < l; ++c)
+        {
+            BT[c * m + r] = b_mat[c + r * l];
+        }
+    }
+
+    *a_mat_ptr = A;
+    *b_mat_ptr = BT;
 }
 
 void matrix_multiply(
-    const int n, const int m, const int l, const int *a_mat, const int *b_mat, int *out_mat)
+    const int n, const int m, const int l, const int *a_mat, const int *bt_mat, int *out_mat)
 {
     /* TODO: Perform matrix multiplication on a_mat and b_mat. Which are the matrices you've
      * constructed. The result should be stored in out_mat, which is a continuous memory placing n *
      * l elements of int. You need to make sure rank 0 receives the result.
      */
+    int world_rank, world_size;
+    MPI_Comm_world_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    int base = n / world_size;
+    int rem = n % world_size;
+
+    // numbers and offsets of A and C for each process
+    int *rows = (int *)malloc((size_t)world_size * sizeof(int));
+    int *numbers_A = (int *)malloc((size_t)world_size * sizeof(int));
+    int *offsets_A = (int *)malloc((size_t)world_size * sizeof(int));
+    int *numbers_C = (int *)malloc((size_t)world_size * sizeof(int));
+    int *offsets_C = (int *)malloc((size_t)world_size * sizeof(int));
+
+    int offset_A_tmp = 0, offset_C_tmp = 0;
+    for (int r = 0; r < size; ++r)
+    {
+        rows[r] = base + (r < rem ? 1 : 0);
+
+        numbers_A[r] = rows[r] * m;
+        offsets_A[r] = offset_A_tmp;
+        offset_A_tmp += numbers_A[r];
+
+        numbers_C[r] = rows[r] * l;
+        offsets_C[r] = offset_C_tmp;
+        offset_C_tmp += numbers_C[r];
+    }
+
+    const int local_rows = rows[world_rank];
+
+    int *local_A = (int *)malloc((size_t)local_rows * (size_t)m * sizeof(int));
+    int *local_C = (int *)calloc((size_t)local_rows * (size_t)l, sizeof(int));
+
+    MPI_Scatterv(a_mat, a_counts, a_displs, MPI_INT, A_local, a_counts[world_rank], MPI_INT, 0,
+                 MPI_COMM_WORLD);
+    MPI_Bcast((void *)bt_mat, l * m, MPI_INT, 0, MPI_COMM_WORLD);
+
+
+    for (int i = 0; i < local_rows; ++i)
+    {
+        for (int j = 0; j < l; ++j)
+        {
+            int sum = 0;
+            for (int k = 0; k < m; ++k)
+            {
+                sum += local_A[i * m + k] * bt_mat[j * m + k];
+            }
+            local_C[i * l + j] = sum;
+        }
+    }
+
+    MPI_Gatherv(local_C, numbers_C[world_rank], MPI_INT, out_mat, numbers_C, offsets_C, MPI_INT, 0,
+                MPI_COMM_WORLD);
+
+    free(local_A);
+    free(local_C);
+    free(rows);
+    free(numbers_A);
+    free(offsets_A);
+    free(numbers_C);
+    free(offsets_C);
 }
 
 void destruct_matrices(int *a_mat, int *b_mat)
 {
     /* TODO */
+    free(a_mat);
+    free(b_mat);
 }
