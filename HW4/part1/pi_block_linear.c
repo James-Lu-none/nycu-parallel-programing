@@ -20,7 +20,7 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     long long int local_tosses = tosses / world_size;
-    unsigned int seed = time(NULL) * world_rank;
+    unsigned int seed = 314581029 * world_rank;
     double x, y;
     int count = 0;
     for (long long int i = 0; i < local_tosses; i++)
