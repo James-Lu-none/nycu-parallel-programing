@@ -72,13 +72,22 @@ void matrix_multiply(
 
     const int local_rows = rows[world_rank];
 
+    int *local_BT = NULL;
+    if (world_rank == 0)
+    {
+        local_BT = (int *)bt_mat;
+    }
+    else
+    {
+        local_BT = new int[l * m];
+    }
+
     int *local_A = new int[local_rows * m];
     int *local_C = new int[local_rows * l];
 
     MPI_Scatterv(a_mat, numbers_A, offsets_A, MPI_INT, local_A, numbers_A[world_rank], MPI_INT, 0,
                  MPI_COMM_WORLD);
-    MPI_Bcast((void *)bt_mat, l * m, MPI_INT, 0, MPI_COMM_WORLD);
-
+    MPI_Bcast(local_BT, l * m, MPI_INT, 0, MPI_COMM_WORLD);
 
     for (int i = 0; i < local_rows; ++i)
     {
@@ -103,6 +112,10 @@ void matrix_multiply(
     delete[] offsets_A;
     delete[] numbers_C;
     delete[] offsets_C;
+    if (world_rank != 0)
+    {
+        delete[] local_BT;
+    }
 }
 
 void destruct_matrices(int *a_mat, int *b_mat)
