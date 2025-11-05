@@ -109,7 +109,7 @@ void matrix_multiply(
             int sum = 0;
             for (int k = 0; k < m; ++k)
             {
-                sum += local_A[i * m + k] * local_BT[j * m + k];
+                sum += local_A[i * m + k] * local_BT[i * m + k];
             }
             local_C[i * l + j] = sum;
         }
