@@ -68,12 +68,12 @@ static void local_block_gemm_tiled(const int *__restrict Ablk, // local_n x m
                 for (int j = j0; j < jmax; ++j)
                 {
                     const int *BTj = BT + (size_t)j * (size_t)m + (size_t)k0; // row j of BT
-                    long long acc = 0; // wider accumulator for safety (not mandatory)
+                    int acc = 0;
                     for (int k = kmax - k0 - 1; k >= 0; --k)
                     {
-                        acc += (long long)Ai[k] * (long long)BTj[k];
+                        acc += Ai[k] * BTj[k];
                     }
-                    Ci[j - j0] += (int)acc;
+                    Ci[j - j0] += acc;
                 }
             }
         }
