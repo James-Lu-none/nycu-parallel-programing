@@ -32,15 +32,9 @@ void construct_matrices(
     int *A = new int[n * m];
     memcpy(A, a_mat, n * m * sizeof(int));
 
+    // there is a trap here, in main.cc b_mat is loaded incorrectly as a m x l matrix, which is already transposed
     int *BT = new int[l * m];
-    // Transpose B
-    for (int r = 0; r < m; ++r)
-    {
-        for (int c = 0; c < l; ++c)
-        {
-            BT[c * m + r] = b_mat[c + r * l];
-        }
-    }
+    memcpy(BT, b_mat, m * l * sizeof(int));
 
     *a_mat_ptr = A;
     *b_mat_ptr = BT;
@@ -98,8 +92,8 @@ void matrix_multiply(
     int *local_C = new int[local_rows * l];
 
     // send A's rows and broadcast B^T to all processes since they dont have them
-    MPI_Scatterv(a_mat, numbers_A, offsets_A, MPI_INT, local_A, numbers_A[world_rank], MPI_INT, 0,
-                 MPI_COMM_WORLD);
+    MPI_Scatterv(a_mat, numbers_A, offsets_A, MPI_INT, local_A, numbers_A[world_rank], MPI_INT, 0, MPI_COMM_WORLD);
+    // broadcast BT since all processes need entire B table regardless the number of rows assigned
     MPI_Bcast(local_BT, l * m, MPI_INT, 0, MPI_COMM_WORLD);
 
     for (int i = 0; i < local_rows; ++i)
@@ -109,7 +103,7 @@ void matrix_multiply(
             int sum = 0;
             for (int k = 0; k < m; ++k)
             {
-                sum += local_A[i * m + k] * local_BT[i * m + k];
+                sum += local_A[i * m + k] * local_BT[j * m + k];
             }
             local_C[i * l + j] = sum;
         }
