@@ -130,7 +130,7 @@ void matrix_multiply(
     }
 
     int *local_A = new int[local_rows * m];
-    int *local_C = new int[local_rows * l];
+    int *local_C = new int[local_rows * l](); // initialize to zero
 
     // send A's rows and broadcast B^T to all processes since they dont have them
     MPI_Scatterv(a_mat, numbers_A, offsets_A, MPI_INT, local_A, numbers_A[world_rank], MPI_INT, 0, MPI_COMM_WORLD);
@@ -139,8 +139,7 @@ void matrix_multiply(
 
     local_block_gemm_tiled(local_A, local_BT, local_C, local_rows, m, l);
 
-    MPI_Gatherv(local_C, numbers_C[world_rank], MPI_INT, out_mat, numbers_C, offsets_C, MPI_INT, 0,
-                MPI_COMM_WORLD);
+    MPI_Gatherv(local_C, numbers_C[world_rank], MPI_INT, out_mat, numbers_C, offsets_C, MPI_INT, 0, MPI_COMM_WORLD);
 
     delete[] local_A;
     delete[] local_C;
