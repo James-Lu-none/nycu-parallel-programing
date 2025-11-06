@@ -40,6 +40,45 @@ void construct_matrices(
     *b_mat_ptr = BT;
 }
 
+
+#define BK 64
+#define BJ 64
+
+static void local_block_gemm_tiled(const int *__restrict Ablk, // local_n x m
+                                   const int *__restrict BT,            // l x m  (B transposed)
+                                   int *__restrict Cblk,                // local_n x l
+                                   int local_n,
+                                   int m,
+                                   int l)
+{
+    // Cblk[i, j] = sum_k Ablk[i, k] * B[k, j]
+    // Using BT so we access BT[j, k] contiguous along k.
+    // Tile on j (columns of C) and k (reduction) to keep cache-friendly.
+
+    for (int j0 = 0; j0 < l; j0 += BJ)
+    {
+        int jmax = (j0 + BJ < l) ? (j0 + BJ) : l;
+        for (int k0 = 0; k0 < m; k0 += BK)
+        {
+            int kmax = (k0 + BK < m) ? (k0 + BK) : m;
+            for (int i = 0; i < local_n; ++i)
+            {
+                const int *Ai = Ablk + (size_t)i * (size_t)m + (size_t)k0;
+                int *Ci = Cblk + (size_t)i * (size_t)l + (size_t)j0;
+                for (int j = j0; j < jmax; ++j)
+                {
+                    const int *BTj = BT + (size_t)j * (size_t)m + (size_t)k0; // row j of BT
+                    long long acc = 0; // wider accumulator for safety (not mandatory)
+                    for (int k = kmax - k0 - 1; k >= 0; --k)
+                    {
+                        acc += (long long)Ai[k] * (long long)BTj[k];
+                    }
+                    Ci[j - j0] += (int)acc;
+                }
+            }
+        }
+    }
+}
 void matrix_multiply(
     const int n, const int m, const int l, const int *a_mat, const int *bt_mat, int *out_mat)
 {
@@ -73,6 +112,8 @@ void matrix_multiply(
         numbers_C[r] = rows[r] * l;
         offsets_C[r] = offset_C_tmp;
         offset_C_tmp += numbers_C[r];
+        // printf("rank %d: rows=%d, numbers_A=%d, offset_A=%d, numbers_C=%d, offset_C=%d\n",
+        //        r, rows[r], numbers_A[r], offsets_A[r], numbers_C[r], offsets_C[r]);
     }
 
     const int local_rows = rows[world_rank];
@@ -96,18 +137,7 @@ void matrix_multiply(
     // broadcast BT since all processes need entire B table regardless the number of rows assigned
     MPI_Bcast(local_BT, l * m, MPI_INT, 0, MPI_COMM_WORLD);
 
-    for (int i = 0; i < local_rows; ++i)
-    {
-        for (int j = 0; j < l; ++j)
-        {
-            int sum = 0;
-            for (int k = 0; k < m; ++k)
-            {
-                sum += local_A[i * m + k] * local_BT[j * m + k];
-            }
-            local_C[i * l + j] = sum;
-        }
-    }
+    local_block_gemm_tiled(local_A, local_BT, local_C, local_rows, m, l);
 
     MPI_Gatherv(local_C, numbers_C[world_rank], MPI_INT, out_mat, numbers_C, offsets_C, MPI_INT, 0,
                 MPI_COMM_WORLD);
