@@ -9,12 +9,13 @@
 #define WIDTH   1200
 #define HEIGHT  800
 
-#define NUM_BODIES 3
+#define NUM_BODIES 1
 #define TRAIL_BUF  100
 #define MIN_DIST   1.5
 
 #define G        10000.0
 #define EPSILON  1e-6
+#define PI       3.14159265358979323846
 
 #define COL_BLACK      0x00000000
 uint32_t COLORS[] = {0x00ff0000, 0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff, 0x0000ffff};
@@ -28,9 +29,10 @@ typedef struct
     double r;
     double theta;
     double phi;
+    double x, y, z;
 } Camera;
 
-Camera cam = {100.0, 0.0, 0.0};
+Camera cam = {10000.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
 typedef struct {
     double x, y, z;
@@ -38,21 +40,25 @@ typedef struct {
     double ax, ay, az;
     double mass;
     double r;
+    double sx, sy;
+    double scale;
 } Planet;
 
 typedef struct {
     int x[TRAIL_BUF];
     int y[TRAIL_BUF];
     int z[TRAIL_BUF];
+    double scale[TRAIL_BUF];
     int head;
     int size;
 } Trail;
 
-static void fill_circle(SDL_Surface *surf, int cx, int cy, int cz, int rad, Uint32 col)
+static void fill_circle(SDL_Surface *surf, const Planet *p, Uint32 col)
 {
-    int scaled_rad = rad * view_z / (view_z + cz);
-    int rad2 = scaled_rad * scaled_rad;
-    double brightness = (view_z - cz) / view_z;
+    double scaled_rad = p->scale * p->r;
+    double rad2 = scaled_rad * scaled_rad;
+    double brightness = p->scale;
+    printf("scale=%.2f, brightness=%.2f\n", p->scale, brightness);
     if (brightness < 0.2)
         brightness = 0.2;
     if (brightness > 1.0)
@@ -69,8 +75,8 @@ static void fill_circle(SDL_Surface *surf, int cx, int cy, int cz, int rad, Uint
         for (int dx = -scaled_rad; dx <= scaled_rad; ++dx)
         {
             if (dx*dx + dy*dy <= rad2) {
-                int px = cx + dx;
-                int py = cy + dy;
+                int px = p->sx + dx;
+                int py = p->sy + dy;
                 if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT) {
                     SDL_Rect pixel = { px, py, 1, 1 };
                     SDL_FillRect(surf, &pixel, adj_col);
@@ -80,22 +86,22 @@ static void fill_circle(SDL_Surface *surf, int cx, int cy, int cz, int rad, Uint
     }
 }
 
-static void trail_push(Trail *t, int x, int y, int z)
+static void trail_push(Trail *t, int x, int y, double scale)
 {
     if (t->size == 0) {
         t->x[0] = x;
         t->y[0] = y;
-        t->z[0] = z;
+        t->scale[0] = scale;
         t->head = 1 % TRAIL_BUF;
         t->size = 1;
         return;
     }
 
     int last = (t->head - 1 + TRAIL_BUF) % TRAIL_BUF;
-    if (abs(x - t->x[last]) >= MIN_DIST || abs(y - t->y[last]) >= MIN_DIST || abs(z - t->z[last]) >= MIN_DIST) {
+    if (abs(x - t->x[last]) >= MIN_DIST || abs(y - t->y[last]) >= MIN_DIST || abs(scale - t->scale[last]) >= 0.1) {
         t->x[t->head] = x;
         t->y[t->head] = y;
-        t->z[t->head] = z;
+        t->scale[t->head] = scale;
         t->head = (t->head + 1) % TRAIL_BUF;
         if (t->size < TRAIL_BUF) t->size++;
     }
@@ -174,7 +180,7 @@ static void *accelerations_thread_v1(void *arg)
             count++;
         }
     }
-    printf("Thread %d: i_start=%d, i_end=%d, calc_count=%d\n", t_id, i_start, i_end, count);
+    // printf("Thread %d: i_start=%d, i_end=%d, calc_count=%d\n", t_id, i_start, i_end, count);
     return NULL;
 }
 
@@ -215,7 +221,7 @@ static void *accelerations_thread_v2(void *arg)
             count++;
         }
     }
-    printf("Thread %d: i_start=%d, i_end=%d, calc_count=%d\n", t_id, i_start, i_end, count);
+    // printf("Thread %d: i_start=%d, i_end=%d, calc_count=%d\n", t_id, i_start, i_end, count);
     return NULL;
 }
 
@@ -277,9 +283,9 @@ static void accelerations_parallel(Planet b[])
     free(args);
 }
 
-static void accelerations(const Planet b[], double ax[], double ay[], double az[])
+static void accelerations(Planet b[])
 {
-    for (int i = 0; i < NUM_BODIES; ++i) ax[i] = ay[i] = az[i] = 0.0;
+    for (int i = 0; i < NUM_BODIES; ++i) b[i].ax = b[i].ay = b[i].az = 0.0;
 
     for (int i = 0; i < NUM_BODIES; ++i) {
         for (int j = i + 1; j < NUM_BODIES; ++j) {
@@ -294,12 +300,12 @@ static void accelerations(const Planet b[], double ax[], double ay[], double az[
             double fy = F * dy / dist;
             double fz = F * dz / dist;
 
-            ax[i] +=  fx / b[i].mass;
-            ay[i] +=  fy / b[i].mass;
-            az[i] +=  fz / b[i].mass;
-            ax[j] -=  fx / b[j].mass;
-            ay[j] -=  fy / b[j].mass;
-            az[j] -=  fz / b[j].mass;
+            b[i].ax +=  fx / b[i].mass;
+            b[i].ay +=  fy / b[i].mass;
+            b[i].az +=  fz / b[i].mass;
+            b[j].ax -=  fx / b[j].mass;
+            b[j].ay -=  fy / b[j].mass;
+            b[j].az -=  fz / b[j].mass;
         }
     }
 }
@@ -309,7 +315,8 @@ static void step_leapfrog(Planet b[], double dt)
     static int first = 1;
 
     if (first) {
-        accelerations_parallel(b);
+        // accelerations_parallel(b);
+        accelerations(b);
         first = 0;
     }
 
@@ -322,7 +329,8 @@ static void step_leapfrog(Planet b[], double dt)
         b[i].z  +=      b[i].vz * dt;
     }
 
-    accelerations_parallel(b);
+    // accelerations_parallel(b);
+    accelerations(b);
 
     for (int i = 0; i < NUM_BODIES; ++i) {
         b[i].vx += 0.5 * b[i].ax * dt;
@@ -351,6 +359,28 @@ static void recenter(Planet b[])
         b[i].x += dx;
         b[i].y += dy;
         b[i].z += dz;
+    }
+}
+
+static void map_camera(Planet b[])
+{
+    for (int i = 0; i < NUM_BODIES; ++i) {
+        double dx = b[i].x - cam.x;
+        double dy = b[i].y - cam.y;
+        double dz = b[i].z - cam.z;
+        double dist2 = dx * dx + dy * dy + dz * dz;
+        double dist = sqrt(dist2);
+
+        double fx = cos(cam.theta) * dx + sin(cam.theta) * dy;
+        double fy = -sin(cam.theta) * dx + cos(cam.theta) * dy;
+        double fz = dz;
+        
+        double fy2 = cos(cam.phi) * fy - sin(cam.phi) * fz;
+        double fz2 = sin(cam.phi) * fy + cos(cam.phi) * fz;
+
+        b[i].sx = WIDTH / 2 + (fx * cam.r / (cam.r + fz2));
+        b[i].sy = HEIGHT / 2 + (fy2 * cam.r / (cam.r + fz2));
+        b[i].scale = cam.r / (cam.r + dist);
     }
 }
 
@@ -387,21 +417,25 @@ int main(void)
     const double S  = 140.0;
     const double VS = 140.0;
     const double m  = 200.0;
-    double cx = WIDTH / 2.0;
-    double cy = HEIGHT / 2.0;
-    double cz = 0.0;
 
     for (int i = 0; i < NUM_BODIES; ++i){
         bodies[i] = (Planet){
-            cx + random_double(-1.0, 1.0) * S,
-            cy + random_double(-1.0, 1.0) * S,
-            cz + random_double(-0.1, 0.1) * S,
+            random_double(-1.0, 1.0) * S,
+            random_double(-1.0, 1.0) * S,
+            random_double(-0.1, 0.1) * S,
             random_double(-1.0, 1.0) * VS,
             random_double(-1.0, 1.0) * VS,
             random_double(-0.1, 0.1) * VS,
             0.0, 0.0, 0.0,
-            m, 15};
+            m, 15,
+            0.0, 0.0, 1.0
+        };
     }
+    bodies[0].mass = 1000.0 * m;
+    bodies[0].vx = bodies[0].vy = bodies[0].vz = 0.0;
+    bodies[0].x = 0.0;
+    bodies[0].y = -0.01 * S;
+    bodies[0].z = 0.0;
 
     Trail trails[NUM_BODIES] = {0};
 
@@ -413,7 +447,47 @@ int main(void)
 
     while (running) {
         while (SDL_PollEvent(&ev))
-            if (ev.type == SDL_QUIT) running = 0;
+        {
+            if (ev.type == SDL_QUIT)
+                running = 0;
+
+            if (ev.type == SDL_KEYDOWN)
+            {
+                switch (ev.key.keysym.sym)
+                {
+                case SDLK_a:
+                    cam.theta -= 0.1;
+                    break; // rotate left
+                case SDLK_d:
+                    cam.theta += 0.1;
+                    break; // rotate right
+                case SDLK_w:
+                    cam.phi += 0.1;
+                    break; // rotate up
+                case SDLK_s:
+                    cam.phi -= 0.1;
+                    break; // rotate down
+                }
+            }
+
+            // clamp phi to avoid flipping
+            // if (cam.phi > PI / 2 - 0.01)
+            //     cam.phi = PI / 2 - 0.01;
+            // if (cam.phi < -PI / 2 + 0.01)
+            //     cam.phi = -PI / 2 + 0.01;
+
+            if (ev.type == SDL_MOUSEWHEEL)
+            {
+                cam.r -= ev.wheel.y * 20; // zoom
+                if (cam.r < 50)
+                    cam.r = 50; // prevent going inside
+            }
+            cam.x = cam.r * cos(cam.phi) * sin(cam.theta);
+            cam.y = cam.r * sin(cam.phi);
+            cam.z = cam.r * cos(cam.phi) * cos(cam.theta);
+            printf("Camera: r=%.2f, theta=%.2f, phi=%.2f, x=%.2f, y=%.2f, z=%.2f\n",
+                   cam.r, cam.theta, cam.phi, cam.x, cam.y, cam.z);
+        }     
 
         Uint32 now = SDL_GetTicks();
         double frame_dt = (now - prev) / 1000.0;
@@ -428,14 +502,15 @@ int main(void)
 
         recenter(bodies);
 
+        map_camera(bodies);
         for (int i = 0; i < NUM_BODIES; ++i)
-            trail_push(&trails[i], (int)bodies[i].x, (int)bodies[i].y, (int)bodies[i].z);
+            trail_push(&trails[i], (int)bodies[i].sx, (int)bodies[i].sy, (int)bodies[i].scale);
 
         SDL_FillRect(surf, NULL, COL_BLACK);
         
         for (int i = 0; i < NUM_BODIES; ++i) {
             trail_draw(surf, &trails[i], COLORS[i % 6]);
-            fill_circle(surf, (int)bodies[i].x, (int)bodies[i].y, (int)bodies[i].z, (int) bodies[i].r, COLORS[i % 6]);
+            fill_circle(surf, &bodies[i], COLORS[i % 6]);
         }
 
         SDL_UpdateWindowSurface(win);
