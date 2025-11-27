@@ -24,8 +24,8 @@ __device__ int mandel(float c_re, float c_im, int max_iterations)
     return i;
 }
 
-// let each thread process multiple adjacent pixels along X for better throughput
-template <int GROUP_SIZE>
+#define GROUP_SIZE 8
+
 __global__ void mandel_kernel(float lower_x,
                               float lower_y,
                               float step_x,
@@ -79,13 +79,10 @@ void host_fe(float upper_x,
     size_t pitch = 0;
     cudaMallocPitch((void **)&device_img, &pitch, res_x * sizeof(int), res_y);
 
-    constexpr int group_size = 4;
     dim3 block(32, 8, 1);
-    dim3 grid((res_x + group_size * block.x - 1) / (group_size * block.x),
+    dim3 grid((res_x + GROUP_SIZE * block.x - 1) / (GROUP_SIZE * block.x),
               (res_y + block.y - 1) / block.y);
-    mandel_kernel<group_size>
-        <<<grid, block>>>(lower_x, lower_y, step_x, step_y, max_iterations, res_x, res_y, pitch,
-                          device_img);
+    mandel_kernel<<<grid, block>>>(lower_x, lower_y, step_x, step_y, max_iterations, res_x, res_y, pitch, device_img);
 
     cudaMemcpy2D(host_img, res_x * sizeof(int), device_img, pitch, res_x * sizeof(int), res_y,
                  cudaMemcpyDeviceToHost);
