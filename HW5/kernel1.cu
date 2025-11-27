@@ -4,6 +4,8 @@
 #include <cuda_runtime.h>
 #include <cstring>
 
+// Each CUDA thread processes one pixel. Use new to allocate the host memory, and use cudaMalloc to
+// allocate GPU memory. Name the file kernel1.cu.
 __device__ int mandel(float c_re, float c_im, int max_iterations)
 {
     float z_re = c_re;
