@@ -13,12 +13,11 @@ __device__ __forceinline__ int mandel(float c_re, float c_im, int max_iterations
     int i = 0;
     for (; i < max_iterations; ++i)
     {
-        float z_re2 = z_re * z_re;
-        float z_im2 = z_im * z_im;
-        if (z_re2 + z_im2 > 4.f)
+        if (z_re * z_re + z_im * z_im > 4.f)
             break;
-        float new_im = __fmaf_rn(z_re, z_im, z_re * z_im); // 2 * z_re * z_im
-        z_re = c_re + (z_re2 - z_im2);
+        float new_re = (z_re * z_re) - (z_im * z_im);
+        float new_im = 2.f * z_re * z_im;
+        z_re = c_re + new_re;
         z_im = c_im + new_im;
     }
     return i;
