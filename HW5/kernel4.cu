@@ -119,7 +119,7 @@ void host_fe(float upper_x,
 
     cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 
-    dim3 block(32, 32, 1);
+    dim3 block(8, 8, 1);
     dim3 grid(div_up(res_x, block.x), div_up(res_y, block.y), 1);
 
     mandel_kernel<<<grid, block>>>(lower_x, lower_y, step_x, step_y, max_iterations, res_x, res_y, pitch, device_img);
