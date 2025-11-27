@@ -61,7 +61,8 @@ void host_fe(float upper_x,
     // Allocate device memory
     cudaMalloc(&device_img, img_size);
 
-    dim3 block(16, 16, 1);
+    // use 32, 8 since it aligns well with warp size (32) and typical block size
+    dim3 block(32, 8, 1);
     dim3 grid((res_x + block.x - 1) / block.x, (res_y + block.y - 1) / block.y);
     mandel_kernel<<<grid, block>>>(lower_x, lower_y, step_x, step_y, max_iterations, res_x, res_y, device_img);
     cudaMemcpy(host_img, device_img, img_size, cudaMemcpyDeviceToHost);
