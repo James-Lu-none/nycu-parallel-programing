@@ -47,14 +47,13 @@ __global__ void mandel_kernel(float lower_x,
 
     int *row = (int *)((char *)output + this_y * pitch);
     float y = lower_y + this_y * step_y;
-    float x_start = lower_x + base_x * step_x;
 #pragma unroll
     for (int i = 0; i < GROUP_SIZE; ++i)
     {
         int this_x = base_x + i;
         if (this_x >= res_x)
             break;
-        float x = x_start + i * step_x;
+        float x = lower_x + this_x * step_x;
         row[this_x] = mandel(x, y, max_iterations);
     }
 }
