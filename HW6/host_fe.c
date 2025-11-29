@@ -3,6 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// host_fe() is the host front-end function that allocates memories and launches a GPU kernel,
+// called convolution(), which is located in kernel.cl.
+//Currently host_fe() and convolution() do not do any computation
+// and return immediately.You should complete these two functions to accomplish
+//    this assignment.
+
 void host_fe(int filter_width,
              float *filter,
              int image_height,
