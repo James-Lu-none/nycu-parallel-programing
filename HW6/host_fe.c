@@ -19,8 +19,37 @@ void host_fe(int filter_width,
              cl_context *context,
              cl_program *program)
 {
+    // simplify the filter if outer values are zero
+    int new_filter_width = filter_width;
+    while (new_filter_width > 1)
+    {
+        int radius = new_filter_width / 2;
+        int all_zeros = 1;
+        for (int i = 0; i < new_filter_width; ++i)
+        {
+            if (filter[i] != 0.0f || filter[(new_filter_width - 1) * new_filter_width + i] != 0.0f ||
+                filter[i * new_filter_width] != 0.0f || filter[i * new_filter_width + new_filter_width - 1] != 0.0f)
+            {
+                all_zeros = 0;
+                break;
+            }
+        }
+        if (!all_zeros)
+            break;
+        new_filter_width -= 2;
+        
+        // shift filter values inward
+        for (int i = 0; i < new_filter_width; ++i)
+        {
+            for (int j = 0; j < new_filter_width; ++j)
+            {
+                filter[i * new_filter_width + j] = filter[(i + 1) * (new_filter_width + 2) + (j + 1)];
+            }
+        }
+    }
+
     cl_int status;
-    int filter_size = filter_width * filter_width;
+    int filter_size = new_filter_width * new_filter_width;
     // Sizes in bytes
     const size_t image_bytes = (size_t)image_height * (size_t)image_width * sizeof(float);
     const size_t filter_bytes = (size_t)filter_size * sizeof(float);
