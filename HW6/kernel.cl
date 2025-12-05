@@ -16,21 +16,15 @@ __kernel void convolution(const int filter_width,
 	int halffilter_size = filter_width / 2;
 	float sum = 0.0f;
 
-	for (int k = -halffilter_size; k <= halffilter_size; k++) {
-		for (int l = -halffilter_size; l <= halffilter_size; l++) {
-			int ii = i + k;
-			int jj = j + l;
+    int k_start = -halffilter_size + i >= 0 ? -halffilter_size : 0;
+    int k_end = halffilter_size + i < image_height ? halffilter_size : halffilter_size + i - image_height - 1;
+    int l_start = -halffilter_size + j >= 0 ? -halffilter_size : 0;
+    int l_end = halffilter_size + j < image_width ? halffilter_size : halffilter_size + j - image_width - 1;
 
-			// zero-padding: if outside image bounds, treat as 0 (skip)
-			if (ii >= 0 && ii < image_height && jj >= 0 && jj < image_width) {
-				float in_val = input_image[ii * image_width + jj];
-				int fk = k + halffilter_size;
-				int fl = l + halffilter_size;
-				float fval = filter[fk * filter_width + fl];
-				sum += in_val * fval;
-			}
-		}
-	}
-
+    for (int k = k_start; k <= k_end; ++k) {
+        for (int l = l_start; l <= l_end; ++l) {
+            sum += input_image[(i + k) * image_width + j + l] * filter[(k + halffilter_size) * filter_width + l + halffilter_size];
+        }
+    }
 	output_image[i * image_width + j] = sum;
 }
