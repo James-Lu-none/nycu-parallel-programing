@@ -45,7 +45,8 @@ void host_fe(int filter_width,
     cl_kernel kernel = clCreateKernel(*program, "convolution", &status);
     CHECK(status, "clCreateKernel");
 
-    // Set kernel arguments to match kernel.cl signature
+
+    // Set kernel arguments to match new tiled kernel signature
     status = clSetKernelArg(kernel, 0, sizeof(int), &filter_width);
     CHECK(status, "clSetKernelArg 0");
     status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_filter);
@@ -59,12 +60,25 @@ void host_fe(int filter_width,
     status = clSetKernelArg(kernel, 5, sizeof(cl_mem), &d_output);
     CHECK(status, "clSetKernelArg 5");
 
-    // Launch kernel with 2D NDRange: [image_height, image_width]
-    size_t global_work_size[2];
-    global_work_size[0] = (size_t)image_height;
-    global_work_size[1] = (size_t)image_width;
+    // Prepare local memory size for tile: BLOCK_SIZE is 16 in kernel.cl
+    const int BLOCK_SIZE = 16;
+    int R = filter_width / 2;
+    size_t tile_size = (size_t)(BLOCK_SIZE + 2 * R);
+    size_t local_tile_bytes = tile_size * tile_size * sizeof(float);
 
-    status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL);
+    // set dynamic local memory argument (last kernel arg)
+    status = clSetKernelArg(kernel, 6, local_tile_bytes, NULL);
+    CHECK(status, "clSetKernelArg 6 (local)");
+
+    // Launch kernel with 2D NDRange. Choose local work size BLOCK_SIZE x BLOCK_SIZE.
+    size_t local_work_size[2] = { (size_t)BLOCK_SIZE, (size_t)BLOCK_SIZE };
+
+    // Pad global sizes to multiples of local size
+    size_t global_rows = ((size_t)image_height + local_work_size[0] - 1) / local_work_size[0] * local_work_size[0];
+    size_t global_cols = ((size_t)image_width + local_work_size[1] - 1) / local_work_size[1] * local_work_size[1];
+    size_t global_work_size[2] = { global_rows, global_cols };
+
+    status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
     CHECK(status, "clEnqueueNDRangeKernel");
 
     // Read back results
