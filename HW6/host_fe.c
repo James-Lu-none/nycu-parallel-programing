@@ -3,12 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// host_fe() is the host front-end function that allocates memories and launches a GPU kernel,
-// called convolution(), which is located in kernel.cl.
-//Currently host_fe() and convolution() do not do any computation
-// and return immediately.You should complete these two functions to accomplish
-//    this assignment.
-
 void host_fe(int filter_width,
              float *filter,
              int image_height,
@@ -58,13 +52,12 @@ void host_fe(int filter_width,
 
     cl_int status;
     int filter_size = new_filter_width * new_filter_width;
-    // Sizes in bytes
     const size_t image_bytes = (size_t)image_height * (size_t)image_width * sizeof(float);
     const size_t filter_bytes = (size_t)filter_size * sizeof(float);
 
     // Create buffers
-    cl_mem d_filter = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, filter_bytes,
-                                     work_filter, &status);
+    cl_mem d_filter = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                     filter_bytes, work_filter, &status);
     CHECK(status, "clCreateBuffer d_filter");
 
     cl_mem d_input = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, image_bytes,
@@ -78,13 +71,29 @@ void host_fe(int filter_width,
     cl_command_queue queue = clCreateCommandQueue(*context, *device, 0, &status);
     CHECK(status, "clCreateCommandQueue");
 
+    // Select the optimal kernel based on filter width
+    const char *kernel_name;
+    switch (new_filter_width)
+    {
+        case 3:
+            kernel_name = "convolution_3x3";
+            break;
+        case 5:
+            kernel_name = "convolution_5x5";
+            break;
+        case 7:
+            kernel_name = "convolution_7x7";
+            break;
+        default:
+            kernel_name = "convolution";
+            break;
+    }
+
     // Create kernel from program
-    cl_kernel kernel = clCreateKernel(*program, "convolution", &status);
+    cl_kernel kernel = clCreateKernel(*program, kernel_name, &status);
     CHECK(status, "clCreateKernel");
 
-
-    // Set kernel arguments to match new tiled kernel signature
-    // use the potentially-simplified filter width
+    // Set kernel arguments
     status = clSetKernelArg(kernel, 0, sizeof(int), &new_filter_width);
     CHECK(status, "clSetKernelArg 0");
     status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_filter);
@@ -98,13 +107,13 @@ void host_fe(int filter_width,
     status = clSetKernelArg(kernel, 5, sizeof(cl_mem), &d_output);
     CHECK(status, "clSetKernelArg 5");
 
-    // Prepare local memory size for tile: BLOCK_SIZE is 16 in kernel.cl
+    // Prepare local memory size for tile
     const int BLOCK_SIZE = 16;
     int R = new_filter_width / 2;
     size_t tile_size = (size_t)(BLOCK_SIZE + 2 * R);
     size_t local_tile_bytes = tile_size * tile_size * sizeof(float);
 
-    // set dynamic local memory argument (last kernel arg)
+    // Set dynamic local memory argument
     status = clSetKernelArg(kernel, 6, local_tile_bytes, NULL);
     CHECK(status, "clSetKernelArg 6 (local)");
 
@@ -116,11 +125,13 @@ void host_fe(int filter_width,
     size_t global_cols = ((size_t)image_width + local_work_size[1] - 1) / local_work_size[1] * local_work_size[1];
     size_t global_work_size[2] = { global_rows, global_cols };
 
-    status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
+    status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, local_work_size, 0,
+                                    NULL, NULL);
     CHECK(status, "clEnqueueNDRangeKernel");
 
     // Read back results
-    status = clEnqueueReadBuffer(queue, d_output, CL_TRUE, 0, image_bytes, output_image, 0, NULL, NULL);
+    status = clEnqueueReadBuffer(queue, d_output, CL_TRUE, 0, image_bytes, output_image, 0, NULL,
+                                 NULL);
     CHECK(status, "clEnqueueReadBuffer");
 
     // Finish and release resources
@@ -130,4 +141,5 @@ void host_fe(int filter_width,
     clReleaseMemObject(d_filter);
     clReleaseMemObject(d_input);
     clReleaseMemObject(d_output);
+    free(work_filter);
 }
