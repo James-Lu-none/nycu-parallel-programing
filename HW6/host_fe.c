@@ -20,15 +20,22 @@ void host_fe(int filter_width,
              cl_program *program)
 {
     // simplify the filter if outer values are zero
+    int max_size = filter_width * filter_width;
+    float *work_filter = (float *)malloc(max_size * sizeof(float));
+
+    memcpy(work_filter, filter, max_size * sizeof(float));
+
     int new_filter_width = filter_width;
+
     while (new_filter_width > 1)
     {
-        int radius = new_filter_width / 2;
         int all_zeros = 1;
         for (int i = 0; i < new_filter_width; ++i)
         {
-            if (filter[i] != 0.0f || filter[(new_filter_width - 1) * new_filter_width + i] != 0.0f ||
-                filter[i * new_filter_width] != 0.0f || filter[i * new_filter_width + new_filter_width - 1] != 0.0f)
+            if (work_filter[i] != 0.0f // top row
+                || work_filter[(new_filter_width - 1) * new_filter_width + i] != 0.0f // bottom row
+                || work_filter[i * new_filter_width] != 0.0f // left column
+                || work_filter[i * new_filter_width + new_filter_width - 1] != 0.0f) // right column
             {
                 all_zeros = 0;
                 break;
@@ -36,6 +43,7 @@ void host_fe(int filter_width,
         }
         if (!all_zeros)
             break;
+        int old_width = new_filter_width;
         new_filter_width -= 2;
         
         // shift filter values inward
@@ -43,7 +51,7 @@ void host_fe(int filter_width,
         {
             for (int j = 0; j < new_filter_width; ++j)
             {
-                filter[i * new_filter_width + j] = filter[(i + 1) * (new_filter_width + 2) + (j + 1)];
+                work_filter[i * new_filter_width + j] = work_filter[(i + 1) * old_width + (j + 1)];
             }
         }
     }
@@ -56,7 +64,7 @@ void host_fe(int filter_width,
 
     // Create buffers
     cl_mem d_filter = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, filter_bytes,
-                                     filter, &status);
+                                     work_filter, &status);
     CHECK(status, "clCreateBuffer d_filter");
 
     cl_mem d_input = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, image_bytes,
@@ -76,7 +84,8 @@ void host_fe(int filter_width,
 
 
     // Set kernel arguments to match new tiled kernel signature
-    status = clSetKernelArg(kernel, 0, sizeof(int), &filter_width);
+    // use the potentially-simplified filter width
+    status = clSetKernelArg(kernel, 0, sizeof(int), &new_filter_width);
     CHECK(status, "clSetKernelArg 0");
     status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_filter);
     CHECK(status, "clSetKernelArg 1");
@@ -91,7 +100,7 @@ void host_fe(int filter_width,
 
     // Prepare local memory size for tile: BLOCK_SIZE is 16 in kernel.cl
     const int BLOCK_SIZE = 16;
-    int R = filter_width / 2;
+    int R = new_filter_width / 2;
     size_t tile_size = (size_t)(BLOCK_SIZE + 2 * R);
     size_t local_tile_bytes = tile_size * tile_size * sizeof(float);
 
