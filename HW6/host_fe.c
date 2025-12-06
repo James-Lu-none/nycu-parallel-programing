@@ -56,14 +56,14 @@ void host_fe(int filter_width,
     const size_t filter_bytes = (size_t)filter_size * sizeof(float);
 
     // Create buffers
-    cl_mem d_filter = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                     filter_bytes, work_filter, &status);
+
+    // filter loads to constant memory __constant const float *filter
+    cl_mem d_filter = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, filter_bytes, work_filter, &status);
     CHECK(status, "clCreateBuffer d_filter");
 
-    cl_mem d_input = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, image_bytes,
-                                    input_image, &status);
+    // input and output images load to global memory __global const float *input_image
+    cl_mem d_input = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, image_bytes, input_image, &status);
     CHECK(status, "clCreateBuffer d_input");
-
     cl_mem d_output = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, image_bytes, NULL, &status);
     CHECK(status, "clCreateBuffer d_output");
 

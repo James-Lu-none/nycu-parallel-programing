@@ -3,7 +3,7 @@
 
 // General purpose kernel with pragma unroll
 __kernel void convolution(const int filter_width,
-                          __global const float *filter,
+                           __constant const float *filter,
                           const int image_height,
                           const int image_width,
                           __global const float *input_image,
