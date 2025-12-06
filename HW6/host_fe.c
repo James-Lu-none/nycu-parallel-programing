@@ -1,5 +1,6 @@
 #include "host_fe.h"
 #include "helper.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -108,7 +109,7 @@ void host_fe(int filter_width,
     CHECK(status, "clSetKernelArg 5");
 
     // Prepare local memory size for tile
-    const int BLOCK_SIZE = 32;
+    const int BLOCK_SIZE = 16;
     int R = new_filter_width / 2;
     size_t tile_size = (size_t)(BLOCK_SIZE + 2 * R);
     size_t local_tile_bytes = tile_size * tile_size * sizeof(float);
@@ -118,12 +119,11 @@ void host_fe(int filter_width,
     CHECK(status, "clSetKernelArg 6 (local)");
 
     // Launch kernel with 2D NDRange. Choose local work size BLOCK_SIZE x BLOCK_SIZE.
-    size_t local_work_size[2] = { (size_t)BLOCK_SIZE, (size_t)BLOCK_SIZE };
+    size_t local_work_size[2] = {(size_t)tile_size, (size_t)tile_size};
 
     // Pad global sizes to multiples of local size
-    size_t global_rows = ((size_t)image_height + local_work_size[0] - 1) / local_work_size[0] * local_work_size[0];
-    size_t global_cols = ((size_t)image_width + local_work_size[1] - 1) / local_work_size[1] * local_work_size[1];
-    size_t global_work_size[2] = { global_rows, global_cols };
+    size_t global_work_size[2] = {((image_height + BLOCK_SIZE - 1) / BLOCK_SIZE) * tile_size,
+                                  ((image_width + BLOCK_SIZE - 1) / BLOCK_SIZE) * tile_size};
 
     status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, local_work_size, 0,
                                     NULL, NULL);
