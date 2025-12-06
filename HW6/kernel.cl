@@ -1,6 +1,39 @@
 // Optimized tiled convolution kernel with loop unrolling
 #define BLOCK_SIZE 16
 
+static inline void load_tile(
+    __global const float* input_image,
+    __local float* local_tile,
+    int image_height,
+    int image_width,
+    int group_row,
+    int group_col,
+    int R,
+    int tile_size
+) {
+    int local_row = get_local_id(0);
+    int local_col = get_local_id(1);
+    int local_nrows = get_local_size(0);
+    int local_ncols = get_local_size(1);
+
+    for (int y = local_row; y < tile_size; y += local_nrows) {
+        for (int x = local_col; x < tile_size; x += local_ncols) {
+            int src_r = group_row + y - R;
+            int src_c = group_col + x - R;
+
+            float val = 0.0f;
+            if (src_r >= 0 && src_r < image_height &&
+                src_c >= 0 && src_c < image_width) {
+                val = input_image[src_r * image_width + src_c];
+            }
+
+            local_tile[y * tile_size + x] = val;
+        }
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+}
+
 // General purpose kernel with pragma unroll
 __kernel void convolution(const int filter_width,
                            __constant const float *filter,
@@ -23,24 +56,17 @@ __kernel void convolution(const int filter_width,
     const int local_nrows = get_local_size(0);
     const int local_ncols = get_local_size(1);
 
-    // Tile loading - unroll by 2
-    #pragma unroll 2
-    for (int y = local_row; y < tile_size; y += local_nrows)
-    {
-        #pragma unroll 2
-        for (int x = local_col; x < tile_size; x += local_ncols)
-        {
-            int src_r = group_row + y - R;
-            int src_c = group_col + x - R;
-            float val = 0.0f;
-            if (src_r >= 0 && src_r < image_height && src_c >= 0 && src_c < image_width)
-            {
-                val = input_image[src_r * image_width + src_c];
-            }
-            local_tile[y * tile_size + x] = val;
-        }
-    }
-
+    load_tile(
+        input_image,
+        local_tile,
+        image_height,
+        image_width,
+        group_row,
+        group_col,
+        R,
+        tile_size
+    );
+    
     barrier(CLK_LOCAL_MEM_FENCE);
 
     if (global_row < image_height && global_col < image_width)
@@ -71,7 +97,7 @@ __kernel void convolution(const int filter_width,
 
 // Specialized 3x3 filter (9 operations)
 __kernel void convolution_3x3(const int filter_width,
-                               __global const float *filter,
+                               __constant const float *filter,
                                const int image_height,
                                const int image_width,
                                __global const float *input_image,
@@ -88,22 +114,16 @@ __kernel void convolution_3x3(const int filter_width,
     int group_row = get_group_id(0) * BLOCK_SIZE;
     int group_col = get_group_id(1) * BLOCK_SIZE;
 
-    for (int y = local_row; y < tile_size; y += BLOCK_SIZE)
-    {
-        for (int x = local_col; x < tile_size; x += BLOCK_SIZE)
-        {
-            int src_r = group_row + y - R;
-            int src_c = group_col + x - R;
-            float val = 0.0f;
-            if (src_r >= 0 && src_r < image_height && src_c >= 0 && src_c < image_width)
-            {
-                val = input_image[src_r * image_width + src_c];
-            }
-            local_tile[y * tile_size + x] = val;
-        }
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
+    load_tile(
+        input_image,
+        local_tile,
+        image_height,
+        image_width,
+        group_row,
+        group_col,
+        R,
+        tile_size
+    );
 
     if (global_row < image_height && global_col < image_width)
     {
@@ -128,7 +148,7 @@ __kernel void convolution_3x3(const int filter_width,
 
 // Specialized 5x5 filter (25 operations)
 __kernel void convolution_5x5(const int filter_width,
-                               __global const float *filter,
+                               __constant const float *filter,
                                const int image_height,
                                const int image_width,
                                __global const float *input_image,
@@ -145,22 +165,16 @@ __kernel void convolution_5x5(const int filter_width,
     int group_row = get_group_id(0) * BLOCK_SIZE;
     int group_col = get_group_id(1) * BLOCK_SIZE;
 
-    for (int y = local_row; y < tile_size; y += BLOCK_SIZE)
-    {
-        for (int x = local_col; x < tile_size; x += BLOCK_SIZE)
-        {
-            int src_r = group_row + y - R;
-            int src_c = group_col + x - R;
-            float val = 0.0f;
-            if (src_r >= 0 && src_r < image_height && src_c >= 0 && src_c < image_width)
-            {
-                val = input_image[src_r * image_width + src_c];
-            }
-            local_tile[y * tile_size + x] = val;
-        }
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
+    load_tile(
+        input_image,
+        local_tile,
+        image_height,
+        image_width,
+        group_row,
+        group_col,
+        R,
+        tile_size
+    );
 
     if (global_row < image_height && global_col < image_width)
     {
@@ -205,7 +219,7 @@ __kernel void convolution_5x5(const int filter_width,
 
 // Specialized 7x7 filter (49 operations)
 __kernel void convolution_7x7(const int filter_width,
-                               __global const float *filter,
+                               __constant const float *filter,
                                const int image_height,
                                const int image_width,
                                __global const float *input_image,
@@ -222,22 +236,16 @@ __kernel void convolution_7x7(const int filter_width,
     int group_row = get_group_id(0) * BLOCK_SIZE;
     int group_col = get_group_id(1) * BLOCK_SIZE;
 
-    for (int y = local_row; y < tile_size; y += BLOCK_SIZE)
-    {
-        for (int x = local_col; x < tile_size; x += BLOCK_SIZE)
-        {
-            int src_r = group_row + y - R;
-            int src_c = group_col + x - R;
-            float val = 0.0f;
-            if (src_r >= 0 && src_r < image_height && src_c >= 0 && src_c < image_width)
-            {
-                val = input_image[src_r * image_width + src_c];
-            }
-            local_tile[y * tile_size + x] = val;
-        }
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
+    load_tile(
+        input_image,
+        local_tile,
+        image_height,
+        image_width,
+        group_row,
+        group_col,
+        R,
+        tile_size
+    );
 
     if (global_row < image_height && global_col < image_width)
     {
