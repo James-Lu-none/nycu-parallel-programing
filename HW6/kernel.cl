@@ -95,24 +95,39 @@ __kernel void convolution_3x3(
     }
     local_tile[lr * TILE_SIZE + lc] = v;
     barrier(CLK_LOCAL_MEM_FENCE);
-    if (lr >= R && lr < R + BLOCK_SIZE &&
-        lc >= R && lc < R + BLOCK_SIZE)
+
+    if (lr >= R && lr < R + BLOCK_SIZE && lc >= R && lc < R + BLOCK_SIZE)
     {
         int out_r = group_row + (lr - R);
         int out_c = group_col + (lc - R);
         if (out_r < image_height && out_c < image_width)
         {
+            int up = (lr - 1) * TILE_SIZE;
+            int mid = lr * TILE_SIZE;
+            int down = (lr + 1) * TILE_SIZE;
+
+            int fc0 = lc - 1;
+            int fc1 = lc;
+            int fc2 = lc + 1;
+
+            float f0 = filter[0], f1 = filter[1], f2 = filter[2];
+            float f3 = filter[3], f4 = filter[4], f5 = filter[5];
+            float f6 = filter[6], f7 = filter[7], f8 = filter[8];
+
             float sum;
-            // Manually unrolled loops for 3x3 filter
-            sum = local_tile[(lr - 1) * TILE_SIZE + (lc - 1)] * filter[0];
-            sum = fma(local_tile[(lr - 1) * TILE_SIZE + (lc    )], filter[1], sum);
-            sum = fma(local_tile[(lr - 1) * TILE_SIZE + (lc + 1)], filter[2], sum);
-            sum = fma(local_tile[(lr    ) * TILE_SIZE + (lc - 1)], filter[3], sum);
-            sum = fma(local_tile[(lr    ) * TILE_SIZE + (lc    )], filter[4], sum);
-            sum = fma(local_tile[(lr    ) * TILE_SIZE + (lc + 1)], filter[5], sum);
-            sum = fma(local_tile[(lr + 1) * TILE_SIZE + (lc - 1)], filter[6], sum);
-            sum = fma(local_tile[(lr + 1) * TILE_SIZE + (lc    )], filter[7], sum);
-            sum = fma(local_tile[(lr + 1) * TILE_SIZE + (lc + 1)], filter[8], sum);
+
+            sum = local_tile[up + fc0] * f0;
+            sum = fma(local_tile[up + fc1], f1, sum);
+            sum = fma(local_tile[up + fc2], f2, sum);
+
+            sum = fma(local_tile[mid + fc0], f3, sum);
+            sum = fma(local_tile[mid + fc1], f4, sum);
+            sum = fma(local_tile[mid + fc2], f5, sum);
+
+            sum = fma(local_tile[down + fc0], f6, sum);
+            sum = fma(local_tile[down + fc1], f7, sum);
+            sum = fma(local_tile[down + fc2], f8, sum);
+
             output_image[out_r * image_width + out_c] = sum;
         }
     }
