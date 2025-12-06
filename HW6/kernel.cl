@@ -102,17 +102,17 @@ __kernel void convolution_3x3(
         int out_c = group_col + (lc - R);
         if (out_r < image_height && out_c < image_width)
         {
-            float sum = 0.0f;
+            float sum;
             // Manually unrolled loops for 3x3 filter
-            sum += local_tile[(lr - 1) * TILE_SIZE + (lc - 1)] * filter[0];
-            sum += local_tile[(lr - 1) * TILE_SIZE + (lc    )] * filter[1];
-            sum += local_tile[(lr - 1) * TILE_SIZE + (lc + 1)] * filter[2];
-            sum += local_tile[(lr    ) * TILE_SIZE + (lc - 1)] * filter[3];
-            sum += local_tile[(lr    ) * TILE_SIZE + (lc    )] * filter[4];
-            sum += local_tile[(lr    ) * TILE_SIZE + (lc + 1)] * filter[5];
-            sum += local_tile[(lr + 1) * TILE_SIZE + (lc - 1)] * filter[6];
-            sum += local_tile[(lr + 1) * TILE_SIZE + (lc    )] * filter[7];
-            sum += local_tile[(lr + 1) * TILE_SIZE + (lc + 1)] * filter[8];
+            sum = local_tile[(lr - 1) * TILE_SIZE + (lc - 1)] * filter[0];
+            sum = fma(local_tile[(lr - 1) * TILE_SIZE + (lc    )], filter[1], sum);
+            sum = fma(local_tile[(lr - 1) * TILE_SIZE + (lc + 1)], filter[2], sum);
+            sum = fma(local_tile[(lr    ) * TILE_SIZE + (lc - 1)], filter[3], sum);
+            sum = fma(local_tile[(lr    ) * TILE_SIZE + (lc    )], filter[4], sum);
+            sum = fma(local_tile[(lr    ) * TILE_SIZE + (lc + 1)], filter[5], sum);
+            sum = fma(local_tile[(lr + 1) * TILE_SIZE + (lc - 1)], filter[6], sum);
+            sum = fma(local_tile[(lr + 1) * TILE_SIZE + (lc    )], filter[7], sum);
+            sum = fma(local_tile[(lr + 1) * TILE_SIZE + (lc + 1)], filter[8], sum);
             output_image[out_r * image_width + out_c] = sum;
         }
     }
