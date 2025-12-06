@@ -1,0 +1,4 @@
+**/*.o
+conv
+output.bmp
+ref.bmp
