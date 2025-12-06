@@ -1,5 +1,5 @@
 // Optimized tiled convolution kernel with loop unrolling
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 32
 
 static inline void load_tile(
     __global const float* input_image,

@@ -108,7 +108,7 @@ void host_fe(int filter_width,
     CHECK(status, "clSetKernelArg 5");
 
     // Prepare local memory size for tile
-    const int BLOCK_SIZE = 16;
+    const int BLOCK_SIZE = 32;
     int R = new_filter_width / 2;
     size_t tile_size = (size_t)(BLOCK_SIZE + 2 * R);
     size_t local_tile_bytes = tile_size * tile_size * sizeof(float);
