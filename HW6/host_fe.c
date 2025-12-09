@@ -60,17 +60,17 @@ void host_fe(int filter_width,
 
     // filter loads to constant memory __constant const float *filter
     cl_mem d_filter = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, filter_bytes, work_filter, &status);
-    CHECK(status, "clCreateBuffer d_filter");
+    // CHECK(status, "clCreateBuffer d_filter");
 
     // input and output images load to global memory __global const float *input_image
     cl_mem d_input = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, image_bytes, input_image, &status);
-    CHECK(status, "clCreateBuffer d_input");
+    // CHECK(status, "clCreateBuffer d_input");
     cl_mem d_output = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, image_bytes, NULL, &status);
-    CHECK(status, "clCreateBuffer d_output");
+    // CHECK(status, "clCreateBuffer d_output");
 
     // Create command queue
     cl_command_queue queue = clCreateCommandQueue(*context, *device, 0, &status);
-    CHECK(status, "clCreateCommandQueue");
+    // CHECK(status, "clCreateCommandQueue");
 
     // Select the optimal kernel based on filter width
     const char *kernel_name;
@@ -92,21 +92,21 @@ void host_fe(int filter_width,
 
     // Create kernel from program
     cl_kernel kernel = clCreateKernel(*program, kernel_name, &status);
-    CHECK(status, "clCreateKernel");
+    // CHECK(status, "clCreateKernel");
 
     // Set kernel arguments
     status = clSetKernelArg(kernel, 0, sizeof(int), &new_filter_width);
-    CHECK(status, "clSetKernelArg 0");
+    // CHECK(status, "clSetKernelArg 0");
     status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &d_filter);
-    CHECK(status, "clSetKernelArg 1");
+    // CHECK(status, "clSetKernelArg 1");
     status = clSetKernelArg(kernel, 2, sizeof(int), &image_height);
-    CHECK(status, "clSetKernelArg 2");
+    // CHECK(status, "clSetKernelArg 2");
     status = clSetKernelArg(kernel, 3, sizeof(int), &image_width);
-    CHECK(status, "clSetKernelArg 3");
+    // CHECK(status, "clSetKernelArg 3");
     status = clSetKernelArg(kernel, 4, sizeof(cl_mem), &d_input);
-    CHECK(status, "clSetKernelArg 4");
+    // CHECK(status, "clSetKernelArg 4");
     status = clSetKernelArg(kernel, 5, sizeof(cl_mem), &d_output);
-    CHECK(status, "clSetKernelArg 5");
+    // CHECK(status, "clSetKernelArg 5");
 
     // Prepare local memory size for tile
     const int BLOCK_SIZE = 16;
@@ -116,7 +116,7 @@ void host_fe(int filter_width,
 
     // Set dynamic local memory argument
     status = clSetKernelArg(kernel, 6, local_tile_bytes, NULL);
-    CHECK(status, "clSetKernelArg 6 (local)");
+    // CHECK(status, "clSetKernelArg 6 (local)");
 
     // Launch kernel with 2D NDRange. Choose local work size BLOCK_SIZE x BLOCK_SIZE.
     size_t local_work_size[2] = {(size_t)tile_size, (size_t)tile_size};
@@ -127,19 +127,19 @@ void host_fe(int filter_width,
 
     status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global_work_size, local_work_size, 0,
                                     NULL, NULL);
-    CHECK(status, "clEnqueueNDRangeKernel");
+    // CHECK(status, "clEnqueueNDRangeKernel");
 
     // Read back results
     status = clEnqueueReadBuffer(queue, d_output, CL_TRUE, 0, image_bytes, output_image, 0, NULL,
                                  NULL);
-    CHECK(status, "clEnqueueReadBuffer");
+    // CHECK(status, "clEnqueueReadBuffer");
 
     // Finish and release resources
-    clFinish(queue);
-    clReleaseKernel(kernel);
-    clReleaseCommandQueue(queue);
-    clReleaseMemObject(d_filter);
-    clReleaseMemObject(d_input);
-    clReleaseMemObject(d_output);
-    free(work_filter);
+    // clFinish(queue);
+    // clReleaseKernel(kernel);
+    // clReleaseCommandQueue(queue);
+    // clReleaseMemObject(d_filter);
+    // clReleaseMemObject(d_input);
+    // clReleaseMemObject(d_output);
+    // free(work_filter);
 }
