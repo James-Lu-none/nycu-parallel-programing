@@ -20,12 +20,15 @@ void host_fe(int filter_width,
     static int cached_new_width = 0;
     static cl_mem cached_d_filter = NULL;
 
+    static float *cached_input = NULL;
+    static int cached_h = 0;
+    static int cached_w = 0;
+    static cl_mem cached_d_input = NULL;
+
     if (cached_filter == NULL || filter != cached_filter || filter_width != cached_filter_width)
     {
         if (cached_d_filter)
             clReleaseMemObject(cached_d_filter);
-        if (cached_filter)
-            free(cached_filter);
 
         int max_size = filter_width * filter_width;
         float *work_filter = (float *)malloc(max_size * sizeof(float));
@@ -71,15 +74,28 @@ void host_fe(int filter_width,
         free(work_filter);
     }
 
+    if (cached_input == NULL || input_image != cached_input || image_height != cached_h
+        || image_width != cached_w)
+    {
+        if (cached_d_input)
+            clReleaseMemObject(cached_d_input);
+
+        size_t image_bytes = (size_t)image_height * (size_t)image_width * sizeof(float);
+        cl_int status;
+        cached_d_input = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                        image_bytes, input_image, &status);
+
+        cached_input = input_image;
+        cached_h = image_height;
+        cached_w = image_width;
+    }
+
     int new_filter_width = cached_new_width;
 
     cl_int status;
     size_t image_bytes = (size_t)image_height * (size_t)image_width * sizeof(float);
 
-    cl_mem d_input = clCreateBuffer(*context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, image_bytes,
-                                    input_image, &status);
     cl_mem d_output = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, image_bytes, NULL, &status);
-
     cl_command_queue queue = clCreateCommandQueue(*context, *device, 0, &status);
 
     const char *kernel_name = (new_filter_width == 3)   ? "convolution_3x3"
@@ -91,7 +107,7 @@ void host_fe(int filter_width,
     clSetKernelArg(kernel, 1, sizeof(cl_mem), &cached_d_filter);
     clSetKernelArg(kernel, 2, sizeof(int), &image_height);
     clSetKernelArg(kernel, 3, sizeof(int), &image_width);
-    clSetKernelArg(kernel, 4, sizeof(cl_mem), &d_input);
+    clSetKernelArg(kernel, 4, sizeof(cl_mem), &cached_d_input);
     clSetKernelArg(kernel, 5, sizeof(cl_mem), &d_output);
 
     const int BLOCK_SIZE = 16;
@@ -111,6 +127,5 @@ void host_fe(int filter_width,
 
     clReleaseKernel(kernel);
     clReleaseCommandQueue(queue);
-    clReleaseMemObject(d_input);
     clReleaseMemObject(d_output);
 }
